@@ -1,0 +1,30 @@
+/*
+------------------------------------------------
+File: index.css
+Purpose: Global styling styles definition.
+Responsibilities: Configures imports, font configurations, glassmorphic card presets.
+Dependencies: tailwindcss
+------------------------------------------------
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  /* Premium Glassmorphism Cards */
+  .glass-card {
+    @apply bg-white/70 dark:bg-slate-800/70 backdrop-blur-md border border-gray-200/50 dark:border-slate-700/50 shadow-xl rounded-2xl transition-all duration-300;
+  }
+
+  /* Custom Hover Effects */
+  .hover-trigger {
+    @apply hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl active:scale-95 transition-all duration-200;
+  }
+}
