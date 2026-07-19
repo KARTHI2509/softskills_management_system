@@ -7,7 +7,17 @@ Dependencies: react, Card, Button
 ------------------------------------------------
 */
 
-import React, { useState } from 'react';
+/*
+------------------------------------------------
+File: ResumeBuilder.jsx
+Purpose: Handles resume reviews and uploads.
+Responsibilities: Integrates ATS grading templates, displays AI suggestions.
+Dependencies: react, axiosClient, Card, Button
+------------------------------------------------
+*/
+
+import React, { useState, useRef } from 'react';
+import axiosClient from '../api/axiosClient';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { FileText, Upload, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
@@ -15,25 +25,44 @@ import { FileText, Upload, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide
 const ResumeBuilder = () => {
   const [atsScore, setAtsScore] = useState(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const handleUpload = () => {
+  const triggerFileSelect = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('resume', file);
+
     setLoading(true);
-    // Simulate resume ATS analysis
-    setTimeout(() => {
-      setAtsScore({
-        score: 78,
-        keywords: ['CI/CD', 'PostgreSQL Optimization', 'Docker', 'REST API Design'],
-        issues: [
-          'Skills grid should be placed at the top.',
-          'Paragraph sections are too descriptive. Use bullet points.'
-        ],
-        suggestions: [
-          'Add quantitative achievements (e.g. "reduced server latency by 35%").',
-          'Include cloud services matching modern recruitment filters.'
-        ]
+    setAtsScore(null);
+
+    try {
+      const res = await axiosClient.post('/resume/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
+
+      if (res.data.success) {
+        const feedback = res.data.resume.ai_suggestions;
+        setAtsScore({
+          score: feedback.atsScore,
+          keywords: feedback.missingKeywords,
+          issues: feedback.formattingIssues,
+          suggestions: feedback.aiSuggestions
+        });
+      }
+    } catch (err) {
+      console.error('Failed to parse resume document:', err);
+      alert('Upload failed. Please ensure the backend is running and valid.');
+    } finally {
       setLoading(false);
-    }, 3000);
+    }
   };
 
   return (
@@ -53,7 +82,16 @@ const ResumeBuilder = () => {
               <p className="font-semibold text-xs mb-2">Select resume PDF or DOCX</p>
               <p className="text-[10px] text-slate-400 mb-6">Maximum size 5MB</p>
               
-              <Button onClick={handleUpload} loading={loading} variant="primary" className="w-full flex justify-center items-center gap-2 text-sm">
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".pdf,.doc,.docx"
+                className="hidden"
+              />
+
+              <Button onClick={triggerFileSelect} loading={loading} variant="primary" className="w-full flex justify-center items-center gap-2 text-sm">
                 <Upload className="w-4 h-4" /> Parse Document
               </Button>
             </div>
@@ -131,3 +169,4 @@ const ResumeBuilder = () => {
 };
 
 export default ResumeBuilder;
+

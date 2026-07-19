@@ -32,4 +32,17 @@ Lists student files pending evaluation.
 */
 router.get('/pending-evaluations', protect, authorize('FACULTY', 'ADMIN'), facultyController.listPendingEvaluations);
 
+/*
+POST /api/faculty/questions/import
+Imports bulk CSV/JSON questions data.
+Only FACULTY or ADMIN can access.
+*/
+router.post('/questions/import', protect, authorize('FACULTY', 'ADMIN'), facultyController.importQuestions);
+
+/*
+POST /api/faculty/answers/evaluate
+Grades student subjective answers.
+*/
+router.post('/answers/evaluate', protect, authorize('FACULTY', 'ADMIN'), facultyController.evaluateStudentAnswer);
+
 module.exports = router;

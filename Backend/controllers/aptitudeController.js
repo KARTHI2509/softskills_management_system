@@ -9,22 +9,33 @@ Dependencies: Aptitude, Student
 
 const Aptitude = require('../models/Aptitude');
 const Student = require('../models/Student');
+const Question = require('../models/questionModel');
+const Answer = require('../models/answerModel');
 
 module.exports = {
   /*
   GET /api/aptitude/questions
-  Returns list of timed aptitude questions.
+  Returns list of timed aptitude questions dynamically from the database.
   */
   getQuestions: async (req, res, next) => {
     try {
       const category = req.query.category || 'Quantitative';
+      
+      // Fetch dynamic questions from PostgreSQL
+      const dbQuestions = await Question.getQuestionsByCategory(category.toUpperCase());
+      
+      // Fallback placeholder questions if database is empty for this category
+      const fallbackQuestions = [
+        { question_id: 'apt-1', question_text: 'Find the next term in: 3, 5, 9, 17, 33...', options: ['65', '60', '55', '50'], correct_answer: '65' },
+        { question_id: 'apt-2', question_text: 'A train 100m long passes a bridge in 10s at 72km/h. Bridge length is...', options: ['100m', '150m', '200m', '250m'], correct_answer: '100m' }
+      ];
+
+      const questionsList = dbQuestions.length > 0 ? dbQuestions : fallbackQuestions;
+
       return res.status(200).json({
         success: true,
         category,
-        questions: [
-          { id: 'apt-1', question: 'Find the next term in: 3, 5, 9, 17, 33...', options: ['65', '60', '55', '50'], answer: '65' },
-          { id: 'apt-2', question: 'A train 100m long passes a bridge in 10s at 72km/h. Bridge length is...', options: ['100m', '150m', '200m', '250m'], answer: '100m' }
-        ]
+        questions: questionsList
       });
     } catch (error) {
       return next(error);
@@ -51,6 +62,33 @@ module.exports = {
         message: 'Aptitude test score logged',
         record,
         newPlacementScore
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  /*
+  POST /api/aptitude/answers/submit
+  Saves written subjective student answers to the database for grading.
+  */
+  submitWrittenAnswers: async (req, res, next) => {
+    try {
+      const { answers } = req.body; // Array of { questionId, submittedAnswer }
+      if (!answers || !Array.isArray(answers)) {
+        return res.status(400).json({ success: false, message: 'Answers array is required.' });
+      }
+
+      const results = [];
+      for (const ans of answers) {
+        const row = await Answer.submitAnswer(req.user.user_id, ans.questionId, ans.submittedAnswer);
+        results.push(row);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully logged ${results.length} answers.`,
+        answers: results
       });
     } catch (error) {
       return next(error);

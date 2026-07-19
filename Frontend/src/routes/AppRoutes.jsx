@@ -32,6 +32,7 @@ import StudentDashboard from '../pages/StudentDashboard';
 import FacultyDashboard from '../pages/FacultyDashboard';
 import PlacementDashboard from '../pages/PlacementDashboard';
 import AdminDashboard from '../pages/AdminDashboard';
+import ManageQuestions from '../pages/ManageQuestions';
 
 // Training Modules
 import CommunicationModule from '../pages/CommunicationModule';
@@ -98,6 +99,10 @@ const AppRoutes = () => {
         <Route 
           path="/faculty/dashboard" 
           element={<ProtectedRoute allowedRoles={['FACULTY']}><FacultyDashboard /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/faculty/questions" 
+          element={<ProtectedRoute allowedRoles={['FACULTY']}><ManageQuestions /></ProtectedRoute>} 
         />
         <Route 
           path="/faculty/activities" 

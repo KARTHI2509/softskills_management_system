@@ -53,6 +53,7 @@ const DashboardLayout = () => {
       return [
         { name: 'Faculty Dashboard', path: '/faculty/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
         { name: 'Assign Activity', path: '/faculty/activities', icon: <BookOpen className="w-5 h-5" /> },
+        { name: 'Manage Questions', path: '/faculty/questions', icon: <CheckSquare className="w-5 h-5" /> },
         { name: 'Evaluate Students', path: '/faculty/evaluations', icon: <GraduationCap className="w-5 h-5" /> },
         { name: 'GD Scheduler', path: '/group-discussion', icon: <Users className="w-5 h-5" /> },
         { name: 'Class Reports', path: '/reports', icon: <BarChart3 className="w-5 h-5" /> },

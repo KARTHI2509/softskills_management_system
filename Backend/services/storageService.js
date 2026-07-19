@@ -17,6 +17,20 @@ module.exports = {
   */
   uploadFile: async (localFilePath, folderName = 'softskills') => {
     try {
+      const isPlaceholder = !process.env.CLOUDINARY_CLOUD_NAME || 
+                            process.env.CLOUDINARY_CLOUD_NAME.includes('placeholder') ||
+                            process.env.CLOUDINARY_CLOUD_NAME === '';
+
+      if (isPlaceholder) {
+        console.warn('Using local uploads storage fallback because Cloudinary keys are missing.');
+        const filename = require('path').basename(localFilePath);
+        return {
+          success: true,
+          url: `http://localhost:5000/uploads/${filename}`,
+          publicId: 'local-placeholder'
+        };
+      }
+
       const result = await cloudinary.uploader.upload(localFilePath, {
         folder: folderName,
         resource_type: 'auto'

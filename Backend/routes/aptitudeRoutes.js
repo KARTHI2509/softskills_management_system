@@ -30,4 +30,10 @@ Returns top placement score performers.
 */
 router.get('/leaderboard', protect, aptitudeController.getLeaderboard);
 
+/*
+POST /api/aptitude/answers/submit
+Logs student subjective answers for grading.
+*/
+router.post('/answers/submit', protect, aptitudeController.submitWrittenAnswers);
+
 module.exports = router;
