@@ -37,14 +37,10 @@ module.exports = {
   */
   getMonthlyReport: async (req, res, next) => {
     try {
+      const stats = await Student.getDetailedProgressReport(req.user.user_id);
       return res.status(200).json({
         success: true,
-        report: {
-          period: 'Monthly Range',
-          aptitudeAvg: 85,
-          interviewAvg: 80,
-          attendanceRate: 95
-        }
+        report: stats
       });
     } catch (error) {
       return next(error);

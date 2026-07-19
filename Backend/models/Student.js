@@ -63,5 +63,53 @@ module.exports = {
       'UPDATE students SET placement_score = $1 WHERE student_id = $2',
       [score, studentId]
     );
+  },
+
+  /*
+  Aggregates student historical evaluation scores across all modules.
+  */
+  getDetailedProgressReport: async (studentId) => {
+    // 1. Aptitude average
+    const aptRes = await db.query(
+      'SELECT AVG((score::float / total_questions) * 100) as avg, COUNT(*) as count FROM aptitude_tests WHERE student_id = $1',
+      [studentId]
+    );
+    
+    // 2. Mock Interview average
+    const mockRes = await db.query(
+      'SELECT AVG(score) as avg, COUNT(*) as count FROM mock_interviews WHERE student_id = $1',
+      [studentId]
+    );
+    
+    // 3. Resume ATS average
+    const resumeRes = await db.query(
+      'SELECT AVG(ats_score) as avg, COUNT(*) as count FROM resumes WHERE student_id = $1',
+      [studentId]
+    );
+
+    // 4. Subjective Written Answers average
+    const writtenRes = await db.query(
+      'SELECT AVG(score) as avg, COUNT(*) as count FROM student_answers WHERE student_id = $1 AND score IS NOT NULL',
+      [studentId]
+    );
+
+    return {
+      aptitude: {
+        average: Math.round(parseFloat(aptRes.rows[0].avg) || 0),
+        count: parseInt(aptRes.rows[0].count) || 0
+      },
+      interview: {
+        average: Math.round(parseFloat(mockRes.rows[0].avg) || 0),
+        count: parseInt(mockRes.rows[0].count) || 0
+      },
+      resume: {
+        average: Math.round(parseFloat(resumeRes.rows[0].avg) || 0),
+        count: parseInt(resumeRes.rows[0].count) || 0
+      },
+      writtenAnswers: {
+        average: Math.round(parseFloat(writtenRes.rows[0].avg) || 0),
+        count: parseInt(writtenRes.rows[0].count) || 0
+      }
+    };
   }
 };
