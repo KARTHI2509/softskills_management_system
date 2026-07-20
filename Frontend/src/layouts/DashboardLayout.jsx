@@ -43,6 +43,9 @@ const DashboardLayout = () => {
         { name: 'Group Discussion', path: '/group-discussion', icon: <Users className="w-5 h-5" /> },
         { name: 'Resume Builder', path: '/resume-builder', icon: <FileText className="w-5 h-5" /> },
         { name: 'Aptitude Tests', path: '/aptitude', icon: <CheckSquare className="w-5 h-5" /> },
+        { name: 'Coding Arena', path: '/coding', icon: <FileText className="w-5 h-5" /> },
+        { name: 'AI Advisor', path: '/advisor', icon: <GraduationCap className="w-5 h-5" /> },
+        { name: 'Peer Forum', path: '/forum', icon: <Users className="w-5 h-5" /> },
         { name: 'Leaderboard', path: '/leaderboard', icon: <Award className="w-5 h-5" /> },
         { name: 'Progress Reports', path: '/reports', icon: <BarChart3 className="w-5 h-5" /> },
         ...common

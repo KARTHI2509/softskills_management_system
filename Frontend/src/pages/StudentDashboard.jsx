@@ -126,6 +126,40 @@ const StudentDashboard = () => {
           </div>
         </Card>
       </div>
+
+      {/* Daily Challenges & Learning System Module */}
+      <div className="grid md:grid-cols-3 gap-6 pt-4 border-t border-slate-200 dark:border-slate-800">
+        <Card title="Daily Vocabulary" className="md:col-span-1 border-amber-200/50 dark:border-amber-950/50 bg-amber-500/5">
+          <span className="px-2.5 py-0.5 bg-amber-500 text-white rounded text-[9px] font-bold uppercase tracking-wider">Word of the Day</span>
+          <h3 className="text-lg font-black text-amber-700 dark:text-amber-400 mt-2.5">Pernicious</h3>
+          <p className="text-[10px] text-slate-500 italic mt-0.5">Adjective · /pəˈnɪʃ.əs/</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed font-semibold">Having a harmful effect, especially in a gradual or subtle way.</p>
+          <div className="mt-4 p-2.5 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+            "The influence of pernicious habits on soft skill preparations."
+          </div>
+        </Card>
+
+        <Card title="Aptitude Challenge" className="md:col-span-2">
+          <div className="space-y-2">
+            <span className="px-2.5 py-0.5 bg-blue-500 text-white rounded text-[9px] font-bold uppercase tracking-wider">Daily Logical Puzzle</span>
+            <p className="text-xs text-slate-700 dark:text-slate-300 font-bold mt-2.5 leading-relaxed">A clock strikes once at 1 o'clock, twice at 2 o'clock, and so on. How many times will it strike in 24 hours?</p>
+            <div className="grid grid-cols-2 gap-3 mt-5 text-xs font-bold uppercase">
+              <button 
+                onClick={() => alert('Incorrect. Try again!')} 
+                className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-xl hover:border-blue-500 text-slate-700 dark:text-slate-300 transition-colors"
+              >
+                A) 78 Times
+              </button>
+              <button 
+                onClick={() => alert('Correct! In 12 hours it strikes 78 times, so in 24 hours it strikes 156 times.')} 
+                className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-xl hover:border-blue-500 text-slate-700 dark:text-slate-300 transition-colors"
+              >
+                B) 156 Times
+              </button>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 };
