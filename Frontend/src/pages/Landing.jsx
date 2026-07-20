@@ -14,6 +14,8 @@ import { ArrowRight, BookOpen, GraduationCap, Video, Users, CheckSquare, Award }
 import { fadeIn, staggerContainer } from '../animations/presets';
 import Button from '../components/Button';
 
+import heroImage from '../assets/skillforge_hero.png';
+
 const Landing = () => {
   return (
     <div className="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen">
@@ -31,9 +33,12 @@ const Landing = () => {
           <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500 bg-clip-text text-transparent">
             Smart Soft Skills Management System
           </h1>
-          <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 mb-10 leading-relaxed">
+          <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
             Practice AI-driven mock interviews, vocabulary exercises, structured group discussions, and aptitude tests to scale your placement readiness index.
           </p>
+          <div className="w-full max-w-2xl mx-auto mb-10 rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
+            <img src={heroImage} alt="SkillForge Platform Illustration" className="w-full h-auto object-cover" />
+          </div>
         </motion.div>
 
         <motion.div 

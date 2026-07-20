@@ -27,6 +27,9 @@ const groupDiscussionRoutes = require('./routes/groupDiscussionRoutes');
 const resumeRoutes = require('./routes/resumeRoutes');
 const aptitudeRoutes = require('./routes/aptitudeRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const advisorRoutes = require('./routes/advisorRoutes');
+const forumRoutes = require('./routes/forumRoutes');
+const certificateRoutes = require('./routes/certificateRoutes');
 
 // Initialize application
 const app = express();
@@ -61,6 +64,9 @@ app.use('/api/group-discussion', groupDiscussionRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/aptitude', aptitudeRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/advisor', advisorRoutes);
+app.use('/api/forum', forumRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 // Fallback Route (404 Page)
 app.use((req, res, next) => {
@@ -76,6 +82,15 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server started in ${process.env.NODE_ENV || 'development'} mode on port: ${PORT}`);
+});
+
+// Resilient Crash Prevention Handlers
+process.on('unhandledRejection', (err) => {
+  console.error(`CRITICAL SYSTEM ERROR (Unhandled Rejection): ${err.message}`);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error(`CRITICAL SYSTEM ERROR (Uncaught Exception): ${err.message}`);
 });
 
 module.exports = app;

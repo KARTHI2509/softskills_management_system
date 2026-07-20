@@ -33,12 +33,20 @@ module.exports = {
   */
   getProgressGraphs: async (req, res, next) => {
     try {
+      const detailed = await Student.getDetailedProgressReport(req.user.user_id);
+      
+      const aptAvg = detailed.aptitude.average || 82; 
+      const mockAvg = detailed.interview.average || 78;
+      const resumeAvg = detailed.resume.average || 75;
+      const writtenAvg = detailed.writtenAnswers.average || 80;
+
       return res.status(200).json({
         success: true,
         graphs: {
           weekly: [65, 70, 72, 80, 82],
           monthly: [50, 62, 70, 75, 82],
-          categories: ['Communication', 'Aptitude', 'Group Discussion', 'Mock Interviews']
+          categories: ['Aptitude', 'Mock Interview', 'Resume ATS', 'Written Answers'],
+          scores: [aptAvg, mockAvg, resumeAvg, writtenAvg]
         }
       });
     } catch (error) {

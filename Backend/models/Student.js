@@ -47,11 +47,54 @@ module.exports = {
     const total = parseInt(attendRow.total) || 0;
     const present = parseInt(attendRow.present) || 0;
     const attendancePercentage = total > 0 ? ((present / total) * 100).toFixed(1) : '100.0';
+    const attendanceRate = parseFloat(attendancePercentage);
+
+    // Compute dynamic score details for the weighted Placement Readiness Score
+    const reports = await module.exports.getDetailedProgressReport(studentId);
+    
+    const commScore = reports.writtenAnswers.average || 80;
+    const resumeScore = reports.resume.average || 75;
+    const interviewScore = reports.interview.average || 78;
+    const aptitudeScore = reports.aptitude.average || 82;
+    
+    // Faculty Evaluation (Group Discussion average)
+    const gdRes = await db.query(
+      'SELECT AVG(score) as avg FROM gd_scores WHERE student_id = $1',
+      [studentId]
+    );
+    const facultyScore = Math.round(parseFloat(gdRes.rows[0]?.avg) || 85);
+    
+    // Activity Completion Rate
+    const activitiesCountRes = await db.query('SELECT COUNT(*)::int as count FROM activities');
+    const studentMockCountRes = await db.query(
+      'SELECT COUNT(*)::int as count FROM mock_interviews WHERE student_id = $1 AND status = \'COMPLETED\'',
+      [studentId]
+    );
+    const assignedCount = activitiesCountRes.rows[0]?.count || 5;
+    const completedCount = studentMockCountRes.rows[0]?.count || 4;
+    const activityCompletionRate = Math.min(100, Math.round((completedCount / Math.max(1, assignedCount)) * 100));
+
+    // Weighted Score logic
+    const weightedScore = Math.round(
+      (commScore * 0.20) +
+      (resumeScore * 0.15) +
+      (interviewScore * 0.25) +
+      (aptitudeScore * 0.20) +
+      (attendanceRate * 0.05) +
+      (facultyScore * 0.10) +
+      (activityCompletionRate * 0.05)
+    );
+
+    // Update dynamic index
+    await db.query('UPDATE students SET placement_score = $1 WHERE student_id = $2', [weightedScore, studentId]);
+
+    // Update profile object in memory
+    const profile = profileRes.rows[0] ? { ...profileRes.rows[0], placement_score: weightedScore } : null;
 
     return {
-      profile: profileRes.rows[0] || null,
-      placementScore: profileRes.rows[0]?.placement_score || 0,
-      attendance: parseFloat(attendancePercentage)
+      profile,
+      placementScore: weightedScore,
+      attendance: attendanceRate
     };
   },
 

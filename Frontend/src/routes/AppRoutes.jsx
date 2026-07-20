@@ -48,6 +48,8 @@ import Notifications from '../pages/Notifications';
 import Settings from '../pages/Settings';
 import Profile from '../pages/Profile';
 import NotFound from '../pages/NotFound';
+import CareerAdvisor from '../pages/CareerAdvisor';
+import DiscussionForum from '../pages/DiscussionForum';
 
 const AppRoutes = () => {
   return (
@@ -157,6 +159,14 @@ const AppRoutes = () => {
         <Route 
           path="/profile" 
           element={<ProtectedRoute allowedRoles={['STUDENT', 'FACULTY', 'PLACEMENT_OFFICER', 'ADMIN']}><Profile /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/advisor" 
+          element={<ProtectedRoute allowedRoles={['STUDENT']}><CareerAdvisor /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/forum" 
+          element={<ProtectedRoute allowedRoles={['STUDENT', 'FACULTY', 'PLACEMENT_OFFICER', 'ADMIN']}><DiscussionForum /></ProtectedRoute>} 
         />
       </Route>
 

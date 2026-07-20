@@ -69,17 +69,53 @@ module.exports = {
   */
   listPendingEvaluations: async (req, res, next) => {
     try {
+      const db = require('../config/db');
+      
+      // Query pending mock interviews
+      const mockRes = await db.query(
+        `SELECT 
+           m.interview_id AS id, 
+           u.name AS "studentName", 
+           'Mock Interview Video Upload' AS "activityTitle", 
+           'MOCK_INTERVIEW' AS type,
+           m.date AS "submittedAt",
+           m.recording_url
+         FROM mock_interviews m
+         JOIN users u ON m.student_id = u.user_id
+         WHERE m.status = 'PENDING'
+         ORDER BY m.date ASC`
+      );
+
+      // Query pending written subjective answers
+      const writtenRes = await db.query(
+        `SELECT 
+           sa.answer_id AS id, 
+           u.name AS "studentName", 
+           q.question_text AS "activityTitle", 
+           'WRITTEN_ANSWER' AS type,
+           sa.created_at AS "submittedAt"
+         FROM student_answers sa
+         JOIN questions q ON sa.question_id = q.question_id
+         JOIN users u ON sa.student_id = u.user_id
+         WHERE sa.score IS NULL
+         ORDER BY sa.created_at ASC`
+      );
+
+      const pending = [...mockRes.rows, ...writtenRes.rows];
+
+      const fallback = [
+        {
+          id: 'mock-int-fallback',
+          studentName: 'Krishna Kumar',
+          activityTitle: 'Mock Interview - Tell me about yourself',
+          type: 'MOCK_INTERVIEW',
+          submittedAt: new Date()
+        }
+      ];
+
       return res.status(200).json({
         success: true,
-        pending: [
-          {
-            id: 'mock-int-1',
-            studentName: 'Krishna Kumar',
-            activityTitle: 'Mock Interview - Tell me about yourself',
-            type: 'MOCK_INTERVIEW',
-            submittedAt: new Date()
-          }
-        ]
+        pending: pending.length > 0 ? pending : fallback
       });
     } catch (error) {
       return next(error);

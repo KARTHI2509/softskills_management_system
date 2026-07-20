@@ -148,3 +148,51 @@ CREATE TABLE IF NOT EXISTS student_answers (
     CONSTRAINT unique_student_question_answer UNIQUE (student_id, question_id)
 );
 
+-- 14. Forum Posts Table
+CREATE TABLE IF NOT EXISTS forum_posts (
+    post_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_by UUID REFERENCES users(user_id) ON DELETE CASCADE,
+    likes INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 15. Forum Comments Table
+CREATE TABLE IF NOT EXISTS forum_comments (
+    comment_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    post_id UUID NOT NULL REFERENCES forum_posts(post_id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_by UUID REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 16. Certificates Table
+CREATE TABLE IF NOT EXISTS certificates (
+    certificate_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID NOT NULL REFERENCES students(student_id) ON DELETE CASCADE,
+    type VARCHAR(100) NOT NULL,
+    verification_hash VARCHAR(255) UNIQUE NOT NULL,
+    issued_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 17. Calendar Events Table
+CREATE TABLE IF NOT EXISTS calendar_events (
+    event_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    event_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_by UUID REFERENCES users(user_id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 18. Coding Challenges Table
+CREATE TABLE IF NOT EXISTS coding_challenges (
+    challenge_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    difficulty VARCHAR(30) CHECK (difficulty IN ('EASY', 'MEDIUM', 'HARD')),
+    test_cases JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
