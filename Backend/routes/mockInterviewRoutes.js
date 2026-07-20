@@ -44,4 +44,10 @@ Resolves audio/video metrics using AI model feedback.
 */
 router.post('/ai-evaluate', protect, mockInterviewController.requestAIEvaluation);
 
+/*
+GET /api/mock-interview/history
+Fetches mock interview session evaluations.
+*/
+router.get('/history', protect, mockInterviewController.getHistory);
+
 module.exports = router;

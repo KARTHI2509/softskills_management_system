@@ -13,7 +13,8 @@ import { useAuth } from '../hooks/useAuth';
 import { ThemeContext } from '../contexts/ThemeContext';
 import { 
   LayoutDashboard, User, Settings, LogOut, Bell, Sun, Moon, 
-  Menu, X, BookOpen, GraduationCap, Users, FileText, CheckSquare, Award, BarChart3
+  Menu, X, BookOpen, GraduationCap, Users, FileText, CheckSquare, Award, BarChart3,
+  Lightbulb, Crown
 } from 'lucide-react';
 
 const DashboardLayout = () => {
@@ -121,6 +122,46 @@ const DashboardLayout = () => {
               </Link>
             );
           })}
+
+          {/* Student-specific sidebar widgets */}
+          {user?.role === 'STUDENT' && (
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 mt-5 space-y-4 px-1">
+              {/* Upgrade to Pro */}
+              <div className="p-4 bg-gradient-to-br from-[#1e293b]/90 to-[#0f172a]/95 text-white rounded-2xl border border-slate-200/10 shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl -mr-4 -mt-4"></div>
+                <div className="flex items-center gap-2 mb-2 relative z-10">
+                  <span className="p-1.5 bg-amber-500/25 text-amber-400 rounded-lg">
+                    <Crown className="w-4 h-4" />
+                  </span>
+                  <span className="text-xs font-bold text-slate-200">Upgrade to Pro</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-slate-300 relative z-10 font-medium mb-3">
+                  Unlock advanced AI feedback, detailed reports and more.
+                </p>
+                <button 
+                  onClick={() => alert('Pro subscription portal coming soon!')}
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-colors shadow-md relative z-10"
+                >
+                  Upgrade Now &rarr;
+                </button>
+              </div>
+
+              {/* Weather widget */}
+              <div className="flex items-center gap-3.5 p-3.5 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-200/50 dark:border-slate-800/40">
+                <div className="text-amber-500 bg-amber-500/10 p-2 rounded-xl">
+                  {/* Sun Icon */}
+                  <svg className="w-6 h-6 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="4" fill="currentColor" className="text-amber-500/20" />
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 leading-tight">26°C</p>
+                  <p className="text-[10px] font-bold text-slate-400">Mostly clear</p>
+                </div>
+              </div>
+            </div>
+          )}
         </nav>
 
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">

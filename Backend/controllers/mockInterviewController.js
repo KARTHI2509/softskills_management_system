@@ -79,5 +79,21 @@ module.exports = {
     } catch (error) {
       return next(error);
     }
+  },
+
+  /*
+  GET /api/mock-interview/history
+  Fetches historical mock interviews logged by the student.
+  */
+  getHistory: async (req, res, next) => {
+    try {
+      const history = await MockInterview.findByStudentId(req.user.user_id);
+      return res.status(200).json({
+        success: true,
+        history
+      });
+    } catch (error) {
+      return next(error);
+    }
   }
 };
