@@ -9,7 +9,7 @@ Dependencies: react, react-router-dom, authService, Button
 
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 import Button from '../components/Button';
 
 const ResetPassword = () => {
@@ -35,7 +35,7 @@ const ResetPassword = () => {
     setMessage('');
 
     try {
-      const res = await axios.post('/api/auth/reset-password', { token, newPassword: password });
+      const res = await axiosClient.post('/auth/reset-password', { token, newPassword: password });
       if (res.data.success) {
         setMessage('Password reset successfully. Redirecting in 3 seconds...');
         setTimeout(() => navigate('/login'), 3000);

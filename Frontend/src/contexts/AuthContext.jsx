@@ -9,6 +9,7 @@ Dependencies: react, axios
 
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import axiosClient from '../api/axiosClient';
 
 export const AuthContext = createContext();
 
@@ -21,11 +22,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token) {
       localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      axiosClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchProfile();
     } else {
       localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
+      delete axiosClient.defaults.headers.common['Authorization'];
       setUser(null);
       setLoading(false);
     }
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/auth/profile');
+      const res = await axiosClient.get('/auth/profile');
       if (res.data.success) {
         setUser(res.data.user);
       }
@@ -54,7 +55,7 @@ export const AuthProvider = ({ children }) => {
   */
   const login = async (email, password, role) => {
     try {
-      const res = await axios.post('/api/auth/login', { email, password, role });
+      const res = await axiosClient.post('/auth/login', { email, password, role });
       if (res.data.success) {
         setToken(res.data.token);
         setUser(res.data.user);
@@ -73,7 +74,7 @@ export const AuthProvider = ({ children }) => {
   */
   const register = async (userData) => {
     try {
-      const res = await axios.post('/api/auth/register', userData);
+      const res = await axiosClient.post('/auth/register', userData);
       if (res.data.success) {
         setToken(res.data.token);
         setUser(res.data.user);
