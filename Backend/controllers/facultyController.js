@@ -351,15 +351,43 @@ module.exports = {
         }
       } else {
         // Parse CSV format: CATEGORY,Question Text,Option1;Option2;Option3;Option4,CorrectOption
+        // Handles double-quoted fields containing commas correctly.
         const lines = csvText.split('\n').filter(l => l.trim());
         for (const line of lines) {
-          const parts = line.split(',');
-          if (parts.length < 2) continue;
-          const category = parts[0].trim().toUpperCase();
-          const question_text = parts[1].trim();
-          const optionStr = parts[2]?.trim() || '';
-          const correct_answer = parts[3]?.trim() || null;
+          const parts = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              parts.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          parts.push(current.trim());
+
+          // Clean wrapping quotes from parts
+          const cleanParts = parts.map(part => {
+            let str = part;
+            if (str.startsWith('"') && str.endsWith('"')) {
+              str = str.substring(1, str.length - 1);
+            }
+            return str.replace(/""/g, '"').trim();
+          });
+
+          if (cleanParts.length < 2) continue;
+
+          const category = cleanParts[0].trim().toUpperCase();
+          const question_text = cleanParts[1].trim();
+          const optionStr = cleanParts[2]?.trim() || '';
+          const correct_answer = cleanParts[3]?.trim() || null;
           const options = optionStr ? optionStr.split(';').map(o => o.trim()) : null;
+
           questions.push({ category, question_text, options, correct_answer });
         }
       }
