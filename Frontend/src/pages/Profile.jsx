@@ -493,7 +493,7 @@ const Profile = () => {
                   <select 
                     value={department} 
                     onChange={(e) => setDepartment(e.target.value)} 
-                    className="mt-1.5 block w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-slate-950 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 dark:text-slate-250 font-semibold"
+                    className="mt-1.5 block w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 dark:text-slate-200 font-semibold"
                   >
                     <option value="CSE">CSE</option>
                     <option value="IT">IT</option>
@@ -553,7 +553,7 @@ const Profile = () => {
                   <select
                     value={selectedFaculty}
                     onChange={(e) => setSelectedFaculty(e.target.value)}
-                    className="block w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-slate-950 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-850 dark:text-slate-250 font-semibold"
+                    className="block w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-white text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800 dark:text-slate-200 font-semibold"
                     required
                   >
                     <option value="">-- Choose Advisor --</option>

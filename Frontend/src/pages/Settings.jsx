@@ -280,7 +280,7 @@ const Settings = () => {
                 <select
                   value={fontSize}
                   onChange={(e) => handleFontSizeChange(e.target.value)}
-                  className="block w-full max-w-xs px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-slate-950 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none text-slate-800 dark:text-slate-200 font-semibold"
+                  className="block w-full max-w-xs px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none text-slate-800 dark:text-slate-200 font-semibold"
                 >
                   <option value="small">Small</option>
                   <option value="medium">Medium (Default)</option>
