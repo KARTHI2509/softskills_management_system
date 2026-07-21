@@ -12,18 +12,126 @@ import React, { createContext, useState, useEffect } from 'react';
 export const ThemeContext = createContext();
 
 export const themesList = {
-  emerald: { name: 'Emerald', primary: '#10b981', rgb: '16, 185, 129', bg: '#02140f', hover: '#059669' },
-  master: { name: 'Master Tech', primary: '#6366f1', rgb: '99, 102, 241', bg: '#0b0f19', hover: '#4f46e5' },
-  ruby: { name: 'Ruby Sunset', primary: '#ef4444', rgb: '239, 68, 68', bg: '#1c080a', hover: '#dc2626' },
-  ocean: { name: 'Ocean Wave', primary: '#0ea5e9', rgb: '14, 165, 233', bg: '#071521', hover: '#0284c7' },
-  legend: { name: 'Legend Gold', primary: '#f59e0b', rgb: '245, 158, 11', bg: '#181105', hover: '#d97706' },
-  rose: { name: 'Rose Red', primary: '#f43f5e', rgb: '244, 63, 94', bg: '#1a060a', hover: '#e11d48' },
-  midnight: { name: 'Midnight', primary: '#3b82f6', rgb: '59, 130, 246', bg: '#030712', hover: '#2563eb' },
-  sakura: { name: 'Sakura Pink', primary: '#ec4899', rgb: '236, 72, 153', bg: '#1a050f', hover: '#db2677' },
-  forest: { name: 'Forest Green', primary: '#22c55e', rgb: '34, 197, 94', bg: '#061408', hover: '#16a34a' },
-  slate: { name: 'Slate', primary: '#64748b', rgb: '100, 116, 139', bg: '#0f172a', hover: '#475569' },
-  coral: { name: 'Coral', primary: '#ff6b6b', rgb: '255, 107, 107', bg: '#1f0c0c', hover: '#ff5252' },
-  cosmic: { name: 'Cosmic Violet', primary: '#a855f7', rgb: '168, 85, 247', bg: '#12071f', hover: '#9333ea' }
+  emerald: { 
+    name: 'Emerald', 
+    primary: '#10b981', 
+    rgb: '16, 185, 129', 
+    bg: '#02140f', 
+    sidebar: '#010b08', 
+    card: '#03251b', 
+    border: '#053d2d', 
+    hover: '#059669' 
+  },
+  master: { 
+    name: 'Master Tech', 
+    primary: '#8b5cf6', 
+    rgb: '139, 92, 246', 
+    bg: '#0d0f1a', 
+    sidebar: '#07080f', 
+    card: '#141729', 
+    border: '#1f2440', 
+    hover: '#7c3aed' 
+  },
+  ruby: { 
+    name: 'Ruby Sunset', 
+    primary: '#ef4444', 
+    rgb: '239, 68, 68', 
+    bg: '#1c080a', 
+    sidebar: '#0d0405', 
+    card: '#2c0c0f', 
+    border: '#441317', 
+    hover: '#dc2626' 
+  },
+  ocean: { 
+    name: 'Ocean Wave', 
+    primary: '#0ea5e9', 
+    rgb: '14, 165, 233', 
+    bg: '#020d1a', 
+    sidebar: '#01070e', 
+    card: '#041933', 
+    border: '#072a54', 
+    hover: '#0284c7' 
+  },
+  legend: { 
+    name: 'Legend Gold', 
+    primary: '#f59e0b', 
+    rgb: '245, 158, 11', 
+    bg: '#120c02', 
+    sidebar: '#0a0601', 
+    card: '#211604', 
+    border: '#382607', 
+    hover: '#d97706' 
+  },
+  rose: { 
+    name: 'Rose Red', 
+    primary: '#f43f5e', 
+    rgb: '244, 63, 94', 
+    bg: '#1a060a', 
+    sidebar: '#0e0305', 
+    card: '#2c0a11', 
+    border: '#44101a', 
+    hover: '#e11d48' 
+  },
+  midnight: { 
+    name: 'Midnight', 
+    primary: '#3b82f6', 
+    rgb: '59, 130, 246', 
+    bg: '#02040a', 
+    sidebar: '#010205', 
+    card: '#050a17', 
+    border: '#0d1733', 
+    hover: '#2563eb' 
+  },
+  sakura: { 
+    name: 'Sakura Pink', 
+    primary: '#ec4899', 
+    rgb: '236, 72, 153', 
+    bg: '#1a050f', 
+    sidebar: '#0e0208', 
+    card: '#2c0919', 
+    border: '#440f27', 
+    hover: '#db2677' 
+  },
+  forest: { 
+    name: 'Forest Green', 
+    primary: '#22c55e', 
+    rgb: '34, 197, 94', 
+    bg: '#020f04', 
+    sidebar: '#010802', 
+    card: '#04210a', 
+    border: '#073811', 
+    hover: '#16a34a' 
+  },
+  slate: { 
+    name: 'Slate', 
+    primary: '#64748b', 
+    rgb: '100, 116, 139', 
+    bg: '#0f172a', 
+    sidebar: '#090d16', 
+    card: '#1e293b', 
+    border: '#334155', 
+    hover: '#475569' 
+  },
+  coral: { 
+    name: 'Coral', 
+    primary: '#ff6b6b', 
+    rgb: '255, 107, 107', 
+    bg: '#140505', 
+    sidebar: '#0a0303', 
+    card: '#240b0b', 
+    border: '#3d1212', 
+    hover: '#ff5252' 
+  },
+  cosmic: { 
+    name: 'Cosmic Violet', 
+    primary: '#a855f7', 
+    rgb: '168, 85, 247', 
+    bg: '#0c0214', 
+    sidebar: '#06010a', 
+    card: '#1a042c', 
+    border: '#2d074b', 
+    hover: '#9333ea' 
+  }
 };
 
 export const ThemeProvider = ({ children }) => {
@@ -62,12 +170,18 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     let c;
     if (accentColor === 'custom') {
-      // Generate custom configuration
+      const customBg = '#05070a';
+      const customSidebar = '#020305';
+      const customCard = '#0e111a';
+      const customBorder = '#1a1f30';
       c = {
         name: 'Custom',
         primary: customColor,
         rgb: hexToRgb(customColor) || '139, 92, 246',
-        bg: '#080c14', // Default matching dark background for custom
+        bg: customBg,
+        sidebar: customSidebar,
+        card: customCard,
+        border: customBorder,
         hover: customColor
       };
     } else {
@@ -91,8 +205,45 @@ export const ThemeProvider = ({ children }) => {
       
       .dark {
         --color-bg: ${c.bg};
-        --color-surface: #111625;
-        --color-border: #1e293b;
+        --color-sidebar: ${c.sidebar};
+        --color-header: ${c.sidebar};
+        --color-card: ${c.card};
+        --color-border: ${c.border};
+        --color-surface: ${c.card};
+      }
+      
+      /* Global Theme Overrides in Dark Mode */
+      .dark body {
+        background-color: var(--color-bg) !important;
+      }
+      
+      .dark aside {
+        background-color: var(--color-sidebar) !important;
+        border-color: var(--color-border) !important;
+      }
+      
+      .dark header {
+        background-color: var(--color-header) !important;
+        border-color: var(--color-border) !important;
+      }
+      
+      .dark .bg-white.dark\\:bg-\\[\\#111625\\], 
+      .dark .bg-white.dark\\:bg-slate-900,
+      .dark .dark\\:bg-slate-900,
+      .dark .dark\\:bg-\\[\\#111625\\],
+      .dark .bg-slate-900,
+      .dark .bg-\\[\\#111625\\],
+      .dark .bg-white.dark\\:bg-slate-900\\/50,
+      .dark .dark\\:bg-slate-900\\/50 {
+        background-color: var(--color-card) !important;
+      }
+      
+      .dark .border-slate-200.dark\\:border-slate-800\\/80,
+      .dark .border-slate-800,
+      .dark .dark\\:border-slate-800,
+      .dark .dark\\:border-slate-800\\/80,
+      .dark .border-slate-200.dark\\:border-slate-800 {
+        border-color: var(--color-border) !important;
       }
       
       .accent-bg-primary {
@@ -111,7 +262,7 @@ export const ThemeProvider = ({ children }) => {
         box-shadow: 0 10px 15px -3px rgba(${c.rgb}, 0.25) !important;
       }
       body {
-        transition: background-color 0.2s ease;
+        transition: background-color 0.2s ease, color 0.2s ease;
       }
     `;
     localStorage.setItem('accentColor', accentColor);

@@ -20,7 +20,9 @@ import {
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
-  const { darkMode, toggleTheme } = useContext(ThemeContext);
+  const { 
+    darkMode, toggleTheme, accentColor, setAccentColor, customColor, setCustomColor 
+  } = useContext(ThemeContext);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   
