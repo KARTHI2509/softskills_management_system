@@ -84,20 +84,39 @@ const LiveInterviewRoom = () => {
     initRoom();
   }, [sessionId]);
 
-  // Bind localStream to local video element and force playback
+  // Callback Ref for Local Video element
+  const setLocalVideoRef = (node) => {
+    localVideoRef.current = node;
+    if (node && localStream) {
+      node.srcObject = localStream;
+      node.muted = true;
+      node.play().catch(e => console.log('Local video play check:', e));
+    }
+  };
+
+  // Callback Ref for Remote Video element
+  const setRemoteVideoRef = (node) => {
+    remoteVideoRef.current = node;
+    if (node && remoteStream) {
+      node.srcObject = remoteStream;
+      node.play().catch(e => console.log('Remote video play check:', e));
+    }
+  };
+
+  // Bind localStream to video element whenever localStream updates
   useEffect(() => {
     if (localStream && localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
       localVideoRef.current.muted = true;
-      localVideoRef.current.play().catch(e => console.log('Local video play check:', e));
+      localVideoRef.current.play().catch(e => console.log('Local video effect play:', e));
     }
   }, [localStream]);
 
-  // Bind remoteStream to remote video element and force playback
+  // Bind remoteStream to video element whenever remoteStream updates
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(e => console.log('Remote video play check:', e));
+      remoteVideoRef.current.play().catch(e => console.log('Remote video effect play:', e));
     }
   }, [remoteStream]);
 
@@ -146,13 +165,20 @@ const LiveInterviewRoom = () => {
     const setupMediaAndWebRTC = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          video: true,
           audio: true
         });
 
         if (!isMounted) return;
 
         setLocalStream(stream);
+
+        // Bind directly to video element ref if available
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.muted = true;
+          localVideoRef.current.play().catch(console.error);
+        }
 
         // Initialize PeerConnection with STUN & TURN Relay servers
         const pc = new RTCPeerConnection({
@@ -189,6 +215,10 @@ const LiveInterviewRoom = () => {
           if (event.streams && event.streams[0]) {
             setRemoteStream(event.streams[0]);
             setConnected(true);
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = event.streams[0];
+              remoteVideoRef.current.play().catch(console.error);
+            }
           }
         };
 
@@ -436,7 +466,7 @@ const LiveInterviewRoom = () => {
           <div className="relative w-full h-96 bg-slate-950 rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-slate-800 shadow-2xl flex items-center justify-center">
             {remoteStream ? (
               <video
-                ref={remoteVideoRef}
+                ref={setRemoteVideoRef}
                 autoPlay
                 playsInline
                 className="w-full h-full object-cover"
@@ -476,7 +506,7 @@ const LiveInterviewRoom = () => {
             <div className="flex items-center gap-3">
               <div className="w-28 h-20 bg-slate-900 rounded-2xl overflow-hidden border-2 border-rose-500/40 relative shadow-inner">
                 <video
-                  ref={localVideoRef}
+                  ref={setLocalVideoRef}
                   autoPlay
                   playsInline
                   muted
