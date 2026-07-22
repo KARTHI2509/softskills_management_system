@@ -83,6 +83,13 @@ const LiveInterviewRoom = () => {
     initRoom();
   }, [sessionId]);
 
+  // Bind localStream to video element whenever localStream changes
+  useEffect(() => {
+    if (localStream && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
   // Start Local Media Stream & Setup WebRTC
   useEffect(() => {
     if (!currentUserId || !peerId) return;
@@ -341,11 +348,11 @@ const LiveInterviewRoom = () => {
             </div>
           </div>
 
-          {/* Lower Bar: Local Video & Media Controls */}
+          {/* Lower Bar: Local Video & Clear Camera/Mic Action Buttons */}
           <div className="p-4 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md flex flex-wrap items-center justify-between gap-4">
             {/* Local Video Thumbnail */}
             <div className="flex items-center gap-3">
-              <div className="w-24 h-16 bg-slate-900 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 relative shadow-inner">
+              <div className="w-28 h-20 bg-slate-900 rounded-2xl overflow-hidden border-2 border-rose-500/40 relative shadow-inner">
                 <video
                   ref={localVideoRef}
                   autoPlay
@@ -353,38 +360,44 @@ const LiveInterviewRoom = () => {
                   muted
                   className="w-full h-full object-cover transform -scale-x-100"
                 />
-                <span className="absolute bottom-1 left-1 text-[8px] font-black bg-black/70 text-white px-1.5 py-0.5 rounded">You</span>
+                <span className="absolute bottom-1.5 left-1.5 text-[9px] font-black bg-black/80 text-white px-2 py-0.5 rounded-md">
+                  You ({videoMuted ? 'Cam Off' : 'Cam Live'})
+                </span>
               </div>
               <div>
-                <p className="font-black text-xs text-slate-800 dark:text-slate-200">Your Live Camera</p>
-                <p className="text-[10px] text-slate-400 font-semibold">{audioMuted ? 'Muted' : 'Microphone Active'}</p>
+                <p className="font-extrabold text-xs text-slate-850 dark:text-white">Your Camera Preview</p>
+                <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                  {videoMuted ? '🔴 Camera Off' : '🟢 Camera Streaming'} • {audioMuted ? '🔴 Mic Muted' : '🟢 Mic Unmuted'}
+                </p>
               </div>
             </div>
 
-            {/* Controls */}
+            {/* Clear Labeled Action Buttons */}
             <div className="flex items-center gap-3">
+              {/* Mic Toggle Button */}
               <button
                 onClick={toggleMuteAudio}
-                className={`p-3.5 rounded-2xl border transition-all ${
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all transform hover:scale-105 ${
                   audioMuted 
-                    ? 'bg-rose-500/10 text-rose-500 border-rose-500/30' 
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                    ? 'bg-rose-500/10 text-rose-500 border-rose-500/30 shadow-md shadow-rose-500/10' 
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                 }`}
-                title={audioMuted ? 'Unmute Mic' : 'Mute Mic'}
               >
-                {audioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                {audioMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                <span>{audioMuted ? 'Mic: MUTED' : 'Mic: UNMUTED'}</span>
               </button>
 
+              {/* Camera Toggle Button */}
               <button
                 onClick={toggleMuteVideo}
-                className={`p-3.5 rounded-2xl border transition-all ${
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all transform hover:scale-105 ${
                   videoMuted 
-                    ? 'bg-rose-500/10 text-rose-500 border-rose-500/30' 
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                    ? 'bg-rose-500/10 text-rose-500 border-rose-500/30 shadow-md shadow-rose-500/10' 
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                 }`}
-                title={videoMuted ? 'Turn On Camera' : 'Turn Off Camera'}
               >
-                {videoMuted ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                {videoMuted ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                <span>{videoMuted ? 'Camera: OFF' : 'Camera: ON'}</span>
               </button>
             </div>
           </div>

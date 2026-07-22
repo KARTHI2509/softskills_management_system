@@ -81,6 +81,20 @@ class LiveInterview {
     return result.rows[0];
   }
 
+  static async rescheduleSession(sessionId, { title, category, scheduledAt }) {
+    const query = `
+      UPDATE live_interview_sessions
+      SET title = COALESCE($1, title),
+          category = COALESCE($2, category),
+          scheduled_at = $3
+      WHERE session_id = $4
+      RETURNING *
+    `;
+    const result = await db.query(query, [title, category, scheduledAt, sessionId]);
+    return result.rows[0];
+  }
+
+
   static async submitEvaluation(sessionId, { commScore, techScore, confScore, feedback }) {
     const comm = parseInt(commScore || 0);
     const tech = parseInt(techScore || 0);

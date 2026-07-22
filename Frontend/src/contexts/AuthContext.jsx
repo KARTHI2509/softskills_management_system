@@ -14,7 +14,14 @@ import axiosClient from '../api/axiosClient';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +33,7 @@ export const AuthProvider = ({ children }) => {
       fetchProfile();
     } else {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       delete axiosClient.defaults.headers.common['Authorization'];
       setUser(null);
       setLoading(false);
@@ -41,14 +49,19 @@ export const AuthProvider = ({ children }) => {
       const res = await axiosClient.get('/auth/profile');
       if (res.data.success) {
         setUser(res.data.user);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
-      logout();
+      // ONLY logout if token is explicitly expired or invalid (HTTP 401)
+      if (error.response?.status === 401) {
+        logout();
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   /*
   Authenticates credentials and registers session.
@@ -95,7 +108,9 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
   };
+
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, register, logout, fetchProfile }}>

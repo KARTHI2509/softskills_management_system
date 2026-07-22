@@ -104,6 +104,36 @@ module.exports = {
   },
 
   /*
+  PUT /api/live-interview/reschedule/:sessionId
+  Faculty updates schedule time, date, title, or category.
+  */
+  rescheduleSession: async (req, res, next) => {
+    try {
+      const { sessionId } = req.params;
+      const { title, category, scheduledAt } = req.body;
+
+      if (!scheduledAt) {
+        return res.status(400).json({ success: false, message: 'Scheduled date and time are required.' });
+      }
+
+      const session = await LiveInterview.rescheduleSession(sessionId, {
+        title,
+        category,
+        scheduledAt
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Live interview slot rescheduled successfully.',
+        session
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+
+  /*
   POST /api/live-interview/evaluate/:sessionId
   Faculty submits live scorecard evaluation for a session.
   */

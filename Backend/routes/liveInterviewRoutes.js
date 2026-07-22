@@ -20,7 +20,9 @@ router.post('/schedule', liveInterviewController.scheduleSession);
 router.get('/sessions', liveInterviewController.getSessions);
 router.get('/session/:sessionId', liveInterviewController.getSessionDetails);
 router.put('/status/:sessionId', liveInterviewController.updateSessionStatus);
+router.put('/reschedule/:sessionId', liveInterviewController.rescheduleSession);
 router.post('/evaluate/:sessionId', liveInterviewController.submitEvaluation);
+
 
 // WebRTC Signaling
 router.post('/signal/send', liveInterviewController.sendSignal);

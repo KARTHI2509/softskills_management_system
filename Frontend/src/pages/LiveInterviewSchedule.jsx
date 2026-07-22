@@ -2,7 +2,7 @@
 ------------------------------------------------
 File: LiveInterviewSchedule.jsx
 Purpose: Live 1-on-1 Mock Interview Schedule and Slot Management for Students and Faculty.
-Responsibilities: Allows faculty to schedule slots, students to view upcoming live interviews & scorecards.
+Responsibilities: Allows faculty to schedule slots, reschedule times, students to view upcoming live interviews & scorecards.
 Dependencies: react, axiosClient, lucide-react, react-router-dom
 ------------------------------------------------
 */
@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { 
   Video, Calendar, Clock, User, CheckCircle, Plus, Sparkles, 
-  ChevronRight, Award, AlertCircle, MessageSquare, Star, ArrowRight 
+  ChevronRight, Award, AlertCircle, MessageSquare, Star, ArrowRight, Edit3 
 } from 'lucide-react';
 
 const LiveInterviewSchedule = () => {
@@ -31,6 +31,14 @@ const LiveInterviewSchedule = () => {
   const [scheduleTime, setScheduleTime] = useState('');
   const [scheduling, setScheduling] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Reschedule Form State (Faculty)
+  const [editSession, setEditSession] = useState(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [rescheduling, setRescheduling] = useState(false);
 
   // Selected Session for viewing feedback report modal
   const [viewSession, setViewSession] = useState(null);
@@ -100,6 +108,52 @@ const LiveInterviewSchedule = () => {
       setFormError(err.response?.data?.message || 'Failed to schedule live interview session.');
     } finally {
       setScheduling(false);
+    }
+  };
+
+  const handleOpenRescheduleModal = (session) => {
+    setEditSession(session);
+    setEditTitle(session.title);
+    setEditCategory(session.category || 'Technical & Behavioral');
+    
+    // Parse current date and time
+    const d = new Date(session.scheduled_at);
+    const dateStr = d.toISOString().split('T')[0];
+    const hours = d.getHours().toString().padStart(2, '0');
+    const mins = d.getMinutes().toString().padStart(2, '0');
+    
+    setEditDate(dateStr);
+    setEditTime(`${hours}:${mins}`);
+    setFormError('');
+  };
+
+  const handleRescheduleSubmit = async (e) => {
+    e.preventDefault();
+    if (!editDate || !editTime) {
+      setFormError('Please select a valid date and time slot.');
+      return;
+    }
+
+    setRescheduling(true);
+    setFormError('');
+
+    try {
+      const scheduledAt = new Date(`${editDate}T${editTime}`).toISOString();
+      const res = await axiosClient.put(`/live-interview/reschedule/${editSession.session_id}`, {
+        title: editTitle,
+        category: editCategory,
+        scheduledAt
+      });
+
+      if (res.data.success) {
+        setEditSession(null);
+        fetchProfileAndSessions();
+      }
+    } catch (err) {
+      console.error('Failed to reschedule session:', err);
+      setFormError(err.response?.data?.message || 'Failed to reschedule live interview session.');
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -259,6 +313,89 @@ const LiveInterviewSchedule = () => {
         </div>
       )}
 
+      {/* Reschedule Slot Modal (Faculty) */}
+      {editSession && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6 relative">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-150 dark:border-slate-800/60">
+              <h3 className="font-extrabold text-lg text-slate-850 dark:text-white flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-blue-500" />
+                Change Interview Time & Slot
+              </h3>
+              <button 
+                onClick={() => setEditSession(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-xs"
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleRescheduleSubmit} className="space-y-4">
+              <div>
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
+                  Candidate Student: <span className="text-slate-900 dark:text-white font-extrabold">{editSession.student_name}</span>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                  Interview Title & Domain
+                </label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-transparent text-xs font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none text-slate-800 dark:text-slate-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                    New Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-transparent text-xs font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                    New Time
+                  </label>
+                  <input
+                    type="time"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 bg-transparent text-xs font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+              </div>
+
+              {formError && (
+                <p className="text-xs font-bold text-rose-500 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
+                  ⚠️ {formError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={rescheduling}
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
+              >
+                {rescheduling ? 'Updating Time Slot...' : 'Update & Reschedule Slot'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* View Live Feedback Scorecard Modal */}
       {viewSession && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -369,15 +506,28 @@ const LiveInterviewSchedule = () => {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/40">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        {dateStr}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {timeStr}
-                      </span>
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/40">
+                      <div className="flex items-center gap-4">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          {dateStr}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          {timeStr}
+                        </span>
+                      </div>
+
+                      {(userRole === 'FACULTY' || userRole === 'ADMIN') && !isCompleted && (
+                        <button
+                          onClick={() => handleOpenRescheduleModal(s)}
+                          className="flex items-center gap-1 text-[11px] font-black text-blue-500 hover:text-blue-600 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20 transition-all"
+                          title="Change interview date or time slot"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          Change Time
+                        </button>
+                      )}
                     </div>
                   </div>
 
