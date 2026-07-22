@@ -1,3 +1,4 @@
+require('dotenv').config();
 const nodemailer = require('nodemailer');
 
 module.exports = {
@@ -9,14 +10,16 @@ module.exports = {
   sendForgotPasswordEmail: async (recipientEmail, recoveryToken) => {
     console.log(`[EMAIL SERVICE] Initializing SMTP broadcast to: ${recipientEmail}`);
     
-    const smtpHost = process.env.SMTP_HOST || 'smtp.mailtrap.io';
-    const smtpPort = process.env.SMTP_PORT || 2525;
+    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const smtpPort = process.env.SMTP_PORT || 587;
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
 
+    const resetUrl = `http://localhost:3000/reset-password?token=${recoveryToken}`;
+
     if (!smtpUser || !smtpPass) {
       console.log(`[EMAIL SERVICE] Missing SMTP credentials. Fallback to console logs.`);
-      console.log(`[EMAIL SERVICE] Reset URL: http://localhost:3000/reset-password?token=${recoveryToken}`);
+      console.log(`[EMAIL SERVICE] Reset URL: ${resetUrl}`);
       return {
         success: true,
         message: 'Password reset link outputted to console logs (fallback).'
@@ -27,15 +30,20 @@ module.exports = {
       const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: parseInt(smtpPort),
+        secure: parseInt(smtpPort) === 465,
         auth: {
           user: smtpUser,
           pass: smtpPass
+        },
+        tls: {
+          rejectUnauthorized: false
         }
       });
 
-      const resetUrl = `http://localhost:3000/reset-password?token=${recoveryToken}`;
+      const senderHeader = smtpUser ? `"SkillForge Team" <${smtpUser}>` : '"SkillForge Team" <noreply@skillforge.edu>';
+
       const mailOptions = {
-        from: '"SkillForge Placement Team" <noreply@skillforge.edu>',
+        from: senderHeader,
         to: recipientEmail,
         subject: 'Placement Readiness Portal - Password Reset Request',
         html: `
@@ -56,6 +64,7 @@ module.exports = {
       };
     } catch (err) {
       console.error(`[EMAIL SERVICE] Nodemailer dispatch failed: ${err.message}`);
+      console.log(`[EMAIL SERVICE] Reset URL (Fallback): ${resetUrl}`);
       return {
         success: false,
         message: 'SMTP dispatch failed, recovery fallback initiated.',
@@ -71,17 +80,17 @@ module.exports = {
   */
   sendOTPEmail: async (recipientEmail, otpCode) => {
     console.log(`[EMAIL SERVICE] Initializing OTP broadcast to: ${recipientEmail}`);
+    console.log(`[EMAIL SERVICE] *******************************************`);
+    console.log(`[EMAIL SERVICE]   YOUR VERIFICATION OTP CODE: ${otpCode}`);
+    console.log(`[EMAIL SERVICE] *******************************************`);
     
-    const smtpHost = process.env.SMTP_HOST || 'smtp.mailtrap.io';
-    const smtpPort = process.env.SMTP_PORT || 2525;
+    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const smtpPort = process.env.SMTP_PORT || 587;
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
 
     if (!smtpUser || !smtpPass) {
       console.log(`[EMAIL SERVICE] Missing SMTP credentials. Fallback to console logs.`);
-      console.log(`[EMAIL SERVICE] *******************************************`);
-      console.log(`[EMAIL SERVICE]   YOUR VERIFICATION OTP CODE: ${otpCode}`);
-      console.log(`[EMAIL SERVICE] *******************************************`);
       return {
         success: true,
         message: 'OTP outputted to console logs (fallback).'
@@ -92,21 +101,27 @@ module.exports = {
       const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: parseInt(smtpPort),
+        secure: parseInt(smtpPort) === 465,
         auth: {
           user: smtpUser,
           pass: smtpPass
+        },
+        tls: {
+          rejectUnauthorized: false
         }
       });
 
+      const senderHeader = smtpUser ? `"SkillForge Security" <${smtpUser}>` : '"SkillForge Security" <security@skillforge.edu>';
+
       const mailOptions = {
-        from: '"SkillForge Security Team" <security@skillforge.edu>',
+        from: senderHeader,
         to: recipientEmail,
         subject: 'Placement Readiness Portal - OTP Security Verification',
         html: `
           <div style="font-family: sans-serif; padding: 20px; max-width: 600px; border: 1px solid #eee; border-radius: 10px;">
             <h2 style="color: #2563eb;">OTP Security Verification</h2>
             <p>You requested to change your password. Please verify using this OTP code:</p>
-            <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 4px; border-radius: 8px; margin: 15px 0; color: #1e3a8a;">
+            <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 28px; font-weight: bold; letter-spacing: 6px; border-radius: 8px; margin: 15px 0; color: #1e3a8a;">
               ${otpCode}
             </div>
             <p style="color: #666; font-size: 11px;">This code is valid for 10 minutes. If you did not request this action, please secure your credentials immediately.</p>
@@ -124,9 +139,10 @@ module.exports = {
       console.error(`[EMAIL SERVICE] Nodemailer OTP dispatch failed: ${err.message}`);
       return {
         success: false,
-        message: 'SMTP dispatch failed, OTP fallback printed to logs.',
+        message: `SMTP dispatch failed: ${err.message}. OTP fallback printed to server logs.`,
         error: err.message
       };
     }
   }
 };
+

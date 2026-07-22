@@ -14,14 +14,18 @@ CREATE TABLE IF NOT EXISTS users (
     user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(50) DEFAULT '+91 98765 43210',
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(30) NOT NULL CHECK (role IN ('STUDENT', 'FACULTY', 'PLACEMENT_OFFICER', 'ADMIN')),
     department VARCHAR(100) NOT NULL,
+    otp_code VARCHAR(10),
+    otp_expires TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Index for User credentials check
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
 
 -- 2. Students Table
 CREATE TABLE IF NOT EXISTS students (
@@ -195,4 +199,19 @@ CREATE TABLE IF NOT EXISTS coding_challenges (
     test_cases JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 19. User Settings Table
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    theme VARCHAR(20) DEFAULT 'dark',
+    accent_color VARCHAR(25) DEFAULT 'purple',
+    font_size VARCHAR(25) DEFAULT 'medium',
+    email_grade BOOLEAN DEFAULT true,
+    weekly_summary BOOLEAN DEFAULT true,
+    new_messages BOOLEAN DEFAULT true,
+    upcoming_deadlines BOOLEAN DEFAULT true,
+    marketing BOOLEAN DEFAULT false,
+    notification_channel VARCHAR(25) DEFAULT 'email'
+);
+
 

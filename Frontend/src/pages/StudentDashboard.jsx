@@ -184,8 +184,14 @@ const StudentDashboard = () => {
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
-      <div className="p-6 bg-white dark:bg-[#111625]/90 border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-lg relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-500/10 to-indigo-500/0 rounded-full blur-xl pointer-events-none" />
+      <div 
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+        className="p-6 border rounded-3xl shadow-lg relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6"
+      >
+        <div 
+          className="absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl pointer-events-none opacity-20" 
+          style={{ background: 'var(--color-primary)' }}
+        />
 
         <div className="flex items-center gap-5">
           {/* Avatar Profile Frame */}
@@ -196,7 +202,10 @@ const StudentDashboard = () => {
             <img src={profilePic} alt="Avatar" className="w-full h-full object-cover" />
           </div>
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-blue-505 bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-500/15">
+            <span 
+              style={{ color: 'var(--color-primary)', backgroundColor: 'rgba(var(--color-accent-rgb), 0.1)', borderColor: 'rgba(var(--color-accent-rgb), 0.2)' }}
+              className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border"
+            >
               Learning Portal Active
             </span>
             <h1 className="text-2xl font-black text-slate-900 dark:text-white mt-1.5 leading-tight">
@@ -209,14 +218,20 @@ const StudentDashboard = () => {
         </div>
 
         <div className="flex flex-col items-end gap-2 shrink-0 w-full md:w-auto">
-          <div className="text-xs font-black tracking-wider px-4 py-2.5 bg-blue-500/10 text-blue-500 dark:text-blue-400 dark:bg-blue-500/10 border border-blue-500/20 rounded-xl shadow-sm w-full md:w-auto text-center md:text-right">
+          <div 
+            style={{ color: 'var(--color-primary)', backgroundColor: 'rgba(var(--color-accent-rgb), 0.1)', borderColor: 'rgba(var(--color-accent-rgb), 0.2)' }}
+            className="text-xs font-black tracking-wider px-4 py-2.5 border rounded-xl shadow-sm w-full md:w-auto text-center md:text-right"
+          >
             Roll No: {stats?.profile?.roll_no || 'N/A'}
           </div>
         </div>
       </div>
 
       {/* Study Session Tracker Card */}
-      <div className="p-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-3xl shadow-lg relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6">
+      <div 
+        style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent-hover))' }}
+        className="p-6 text-white rounded-3xl shadow-lg relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-6"
+      >
         <div className="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -232,7 +247,7 @@ const StudentDashboard = () => {
                 <span className="text-xs font-bold text-emerald-300">Session active since {new Date(activeSession.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
               </div>
             ) : (
-              <p className="text-xs text-indigo-100 font-semibold mt-1">
+              <p className="text-xs text-white/90 font-semibold mt-1">
                 Ready to prepare? Start your check-in timer to count study hours towards your placement metrics.
               </p>
             )}
@@ -252,7 +267,7 @@ const StudentDashboard = () => {
             className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 transform hover:scale-[1.03] active:scale-95 ${
               activeSession 
                 ? 'bg-rose-500 hover:bg-rose-600 shadow-md text-white' 
-                : 'bg-white text-indigo-700 hover:bg-slate-100 shadow-lg'
+                : 'bg-white text-slate-900 hover:bg-slate-100 shadow-lg'
             }`}
           >
             {activeSession ? (
@@ -271,10 +286,16 @@ const StudentDashboard = () => {
       {/* Metrics Row */}
       <div className="grid sm:grid-cols-3 gap-6">
         {/* Placement Score Card */}
-        <div className="p-6 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between h-40">
+        <div 
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className="p-6 border rounded-3xl shadow-md transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between h-40"
+        >
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl border border-blue-500/20">
+              <div 
+                style={{ backgroundColor: 'rgba(var(--color-accent-rgb), 0.12)', color: 'var(--color-primary)', borderColor: 'rgba(var(--color-accent-rgb), 0.25)' }}
+                className="p-3 rounded-2xl border"
+              >
                 <Award className="w-6 h-6" />
               </div>
               <div>
@@ -290,15 +311,18 @@ const StudentDashboard = () => {
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
               <div 
-                style={{ width: `${stats?.placementScore || 0}%` }} 
-                className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                style={{ width: `${stats?.placementScore || 0}%`, backgroundColor: 'var(--color-primary)' }} 
+                className="h-full rounded-full transition-all duration-500" 
               />
             </div>
           </div>
         </div>
         
         {/* Attendance Rate Card */}
-        <div className="p-6 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between h-40">
+        <div 
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className="p-6 border rounded-3xl shadow-md transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between h-40"
+        >
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-2xl border border-emerald-500/20">
@@ -324,7 +348,10 @@ const StudentDashboard = () => {
         </div>
 
         {/* Aptitude Score Card */}
-        <div className="p-6 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between h-40">
+        <div 
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className="p-6 border rounded-3xl shadow-md transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between h-40"
+        >
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-purple-500/10 text-purple-500 rounded-2xl border border-purple-500/20">
@@ -354,7 +381,10 @@ const StudentDashboard = () => {
       {/* Graphs Area */}
       <div className="grid md:grid-cols-2 gap-8">
         {/* Weekly Score Analysis */}
-        <div className="p-6 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md">
+        <div 
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className="p-6 border rounded-3xl shadow-md"
+        >
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">Weekly Score Analysis</h3>
             <select className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5 px-3 rounded-lg text-slate-600 dark:text-slate-300">
@@ -368,12 +398,12 @@ const StudentDashboard = () => {
             <svg viewBox="0 0 500 200" className="w-full h-full overflow-visible">
               <defs>
                 <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0.0" />
                 </linearGradient>
                 <linearGradient id="strokeGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#6366f1" />
+                  <stop offset="0%" stopColor="var(--color-primary)" />
+                  <stop offset="100%" stopColor="var(--color-accent-hover)" />
                 </linearGradient>
               </defs>
 
@@ -408,11 +438,11 @@ const StudentDashboard = () => {
               />
 
               {/* Points */}
-              <circle cx="50" cy={y0} r="6" className="fill-blue-600 dark:fill-blue-500 stroke-white dark:stroke-[#111625]" strokeWidth="3" />
-              <circle cx="150" cy={y1} r="6" className="fill-blue-600 dark:fill-blue-500 stroke-white dark:stroke-[#111625]" strokeWidth="3" />
-              <circle cx="250" cy={y2} r="6" className="fill-blue-600 dark:fill-blue-500 stroke-white dark:stroke-[#111625]" strokeWidth="3" />
-              <circle cx="350" cy={y3} r="6" className="fill-blue-600 dark:fill-blue-500 stroke-white dark:stroke-[#111625]" strokeWidth="3" />
-              <circle cx="450" cy={y4} r="6" className="fill-blue-600 dark:fill-blue-500 stroke-white dark:stroke-[#111625]" strokeWidth="3" />
+              <circle cx="50" cy={y0} r="6" style={{ fill: 'var(--color-primary)' }} className="stroke-white dark:stroke-slate-900" strokeWidth="3" />
+              <circle cx="150" cy={y1} r="6" style={{ fill: 'var(--color-primary)' }} className="stroke-white dark:stroke-slate-900" strokeWidth="3" />
+              <circle cx="250" cy={y2} r="6" style={{ fill: 'var(--color-primary)' }} className="stroke-white dark:stroke-slate-900" strokeWidth="3" />
+              <circle cx="350" cy={y3} r="6" style={{ fill: 'var(--color-primary)' }} className="stroke-white dark:stroke-slate-900" strokeWidth="3" />
+              <circle cx="450" cy={y4} r="6" style={{ fill: 'var(--color-primary)' }} className="stroke-white dark:stroke-slate-900" strokeWidth="3" />
             </svg>
           </div>
           
@@ -426,7 +456,10 @@ const StudentDashboard = () => {
         </div>
 
         {/* Monthly Category Analysis */}
-        <div className="p-6 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md">
+        <div 
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className="p-6 border rounded-3xl shadow-md"
+        >
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">Monthly Category Analysis</h3>
             <button 
@@ -443,8 +476,8 @@ const StudentDashboard = () => {
               <span className="text-xs font-black text-slate-700 dark:text-slate-300 opacity-90">{stats?.categoryAnalysis?.Aptitude || 0}%</span>
               <div className="w-full bg-slate-100 dark:bg-slate-800/50 rounded-2xl h-44 flex items-end overflow-hidden">
                 <div 
-                  style={{ height: `${stats?.categoryAnalysis?.Aptitude || 0}%` }}
-                  className="w-full bg-gradient-to-t from-blue-700 via-indigo-600 to-purple-500 rounded-b-xl rounded-t-lg transition-all duration-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+                  style={{ height: `${stats?.categoryAnalysis?.Aptitude || 0}%`, background: 'linear-gradient(to top, var(--color-primary), var(--color-accent-hover))' }}
+                  className="w-full rounded-b-xl rounded-t-lg transition-all duration-500 shadow-md"
                 />
               </div>
               <div className="flex items-center gap-1.5 mt-2">
@@ -458,8 +491,8 @@ const StudentDashboard = () => {
               <span className="text-xs font-black text-slate-700 dark:text-slate-300 opacity-90">{stats?.categoryAnalysis?.Communication || 0}%</span>
               <div className="w-full bg-slate-100 dark:bg-slate-800/50 rounded-2xl h-44 flex items-end overflow-hidden">
                 <div 
-                  style={{ height: `${stats?.categoryAnalysis?.Communication || 0}%` }}
-                  className="w-full bg-gradient-to-t from-blue-700 via-indigo-600 to-purple-500 rounded-b-xl rounded-t-lg transition-all duration-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+                  style={{ height: `${stats?.categoryAnalysis?.Communication || 0}%`, background: 'linear-gradient(to top, var(--color-primary), var(--color-accent-hover))' }}
+                  className="w-full rounded-b-xl rounded-t-lg transition-all duration-500 shadow-md"
                 />
               </div>
               <div className="flex items-center gap-1.5 mt-2">
@@ -473,8 +506,8 @@ const StudentDashboard = () => {
               <span className="text-xs font-black text-slate-700 dark:text-slate-300 opacity-90">{stats?.categoryAnalysis?.GD || 0}%</span>
               <div className="w-full bg-slate-100 dark:bg-slate-800/50 rounded-2xl h-44 flex items-end overflow-hidden">
                 <div 
-                  style={{ height: `${stats?.categoryAnalysis?.GD || 0}%` }}
-                  className="w-full bg-gradient-to-t from-blue-700 via-indigo-600 to-purple-500 rounded-b-xl rounded-t-lg transition-all duration-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+                  style={{ height: `${stats?.categoryAnalysis?.GD || 0}%`, background: 'linear-gradient(to top, var(--color-primary), var(--color-accent-hover))' }}
+                  className="w-full rounded-b-xl rounded-t-lg transition-all duration-500 shadow-md"
                 />
               </div>
               <div className="flex items-center gap-1.5 mt-2">
@@ -488,8 +521,8 @@ const StudentDashboard = () => {
               <span className="text-xs font-black text-slate-700 dark:text-slate-300 opacity-90">{stats?.categoryAnalysis?.MockInterview || 0}%</span>
               <div className="w-full bg-slate-100 dark:bg-slate-800/50 rounded-2xl h-44 flex items-end overflow-hidden">
                 <div 
-                  style={{ height: `${stats?.categoryAnalysis?.MockInterview || 0}%` }}
-                  className="w-full bg-gradient-to-t from-blue-700 via-indigo-600 to-purple-500 rounded-b-xl rounded-t-lg transition-all duration-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+                  style={{ height: `${stats?.categoryAnalysis?.MockInterview || 0}%`, background: 'linear-gradient(to top, var(--color-primary), var(--color-accent-hover))' }}
+                  className="w-full rounded-b-xl rounded-t-lg transition-all duration-500 shadow-md"
                 />
               </div>
               <div className="flex items-center gap-1.5 mt-2">
@@ -504,11 +537,14 @@ const StudentDashboard = () => {
       {/* Sub Grids Row */}
       <div className="grid md:grid-cols-2 gap-8">
         {/* Upcoming Activities */}
-        <div className="p-6 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md flex flex-col justify-between">
+        <div 
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className="p-6 border rounded-3xl shadow-md flex flex-col justify-between"
+        >
           <div>
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">Upcoming Activities</h3>
-              <button onClick={() => navigate('/reports')} className="text-xs font-black text-blue-500 hover:underline">View All</button>
+              <button onClick={() => navigate('/reports')} style={{ color: 'var(--color-primary)' }} className="text-xs font-black hover:underline">View All</button>
             </div>
             
             <div className="space-y-4">
@@ -571,11 +607,14 @@ const StudentDashboard = () => {
         </div>
 
         {/* Trainer Feedback & Review */}
-        <div className="p-6 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-md flex flex-col justify-between">
+        <div 
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+          className="p-6 border rounded-3xl shadow-md flex flex-col justify-between"
+        >
           <div>
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">Trainer Feedback & Review</h3>
-              <button onClick={() => navigate('/mock-interview')} className="text-xs font-black text-blue-500 hover:underline">View All Feedback</button>
+              <button onClick={() => navigate('/mock-interview')} style={{ color: 'var(--color-primary)' }} className="text-xs font-black hover:underline">View All Feedback</button>
             </div>
             
             <div className="p-5 bg-slate-50/70 dark:bg-slate-900/30 rounded-2xl border border-slate-150 dark:border-slate-800/40 shadow-inner relative">
@@ -618,8 +657,9 @@ const StudentDashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Card 1: Start Aptitude Test */}
           <div 
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             onClick={() => navigate('/aptitude')}
-            className="p-5 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:border-blue-500 dark:hover:border-blue-500/50 hover:shadow-md group transition-all"
+            className="p-5 border rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md group transition-all"
           >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300 border border-blue-500/15">
@@ -635,8 +675,9 @@ const StudentDashboard = () => {
 
           {/* Card 2: Book Mock Interview */}
           <div 
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             onClick={() => navigate('/mock-interview')}
-            className="p-5 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:border-emerald-500 dark:hover:border-emerald-500/50 hover:shadow-md group transition-all"
+            className="p-5 border rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md group transition-all"
           >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-300 border border-emerald-500/15">
@@ -652,8 +693,9 @@ const StudentDashboard = () => {
 
           {/* Card 3: Join Group Discussion */}
           <div 
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             onClick={() => navigate('/group-discussion')}
-            className="p-5 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:border-rose-500 dark:hover:border-rose-500/50 hover:shadow-md group transition-all"
+            className="p-5 border rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md group transition-all"
           >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300 border border-rose-500/15">
@@ -669,8 +711,9 @@ const StudentDashboard = () => {
 
           {/* Card 4: Ask AI Advisor */}
           <div 
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
             onClick={() => navigate('/advisor')}
-            className="p-5 bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:border-purple-500 dark:hover:border-purple-500/50 hover:shadow-md group transition-all"
+            className="p-5 border rounded-2xl shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md group transition-all"
           >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl group-hover:bg-purple-500 group-hover:text-white transition-colors duration-300 border border-purple-500/15">
@@ -690,3 +733,4 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
+

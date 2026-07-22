@@ -10,6 +10,31 @@ Dependencies: db.js
 const db = require('../config/db');
 
 const migrationSql = `
+-- Add missing columns to users table
+ALTER TABLE users 
+ADD COLUMN IF NOT EXISTS phone VARCHAR(50) DEFAULT '+91 98765 43210',
+ADD COLUMN IF NOT EXISTS otp_code VARCHAR(10),
+ADD COLUMN IF NOT EXISTS otp_expires TIMESTAMP WITH TIME ZONE;
+
+-- Create User Settings Table
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id UUID PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    theme VARCHAR(20) DEFAULT 'dark',
+    accent_color VARCHAR(25) DEFAULT 'purple',
+    font_size VARCHAR(25) DEFAULT 'medium',
+    email_grade BOOLEAN DEFAULT true,
+    weekly_summary BOOLEAN DEFAULT true,
+    new_messages BOOLEAN DEFAULT true,
+    upcoming_deadlines BOOLEAN DEFAULT true,
+    marketing BOOLEAN DEFAULT false,
+    notification_channel VARCHAR(25) DEFAULT 'email'
+);
+
+-- Populate user_settings for existing users
+INSERT INTO user_settings (user_id)
+SELECT user_id FROM users
+ON CONFLICT (user_id) DO NOTHING;
+
 -- Create Questions Table
 CREATE TABLE IF NOT EXISTS questions (
     question_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -47,3 +72,4 @@ async function runMigration() {
 }
 
 runMigration();
+
