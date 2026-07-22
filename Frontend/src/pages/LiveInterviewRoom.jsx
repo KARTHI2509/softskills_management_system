@@ -56,7 +56,7 @@ const LiveInterviewRoom = () => {
   const timerRef = useRef(null);
   const iceCandidatesQueueRef = useRef([]);
 
-  // Fetch session details & user profile
+  // Fetch session details & user profile, and attempt auto media stream acquisition
   useEffect(() => {
     const initRoom = async () => {
       try {
@@ -80,6 +80,9 @@ const LiveInterviewRoom = () => {
             if (sess.status === 'SCHEDULED') {
               axiosClient.put(`/live-interview/status/${sessionId}`, { status: 'LIVE' });
             }
+
+            // Auto-request media stream if permission was previously granted
+            requestMediaPermission(true);
           }
         }
       } catch (err) {
@@ -92,7 +95,7 @@ const LiveInterviewRoom = () => {
   }, [sessionId]);
 
   // Request Camera & Mic Permission Explicitly
-  const requestMediaPermission = async () => {
+  const requestMediaPermission = async (autoEnter = false) => {
     setPermissionRequested(true);
     setPermissionDenied(false);
     setErrorMsg(null);
@@ -110,10 +113,16 @@ const LiveInterviewRoom = () => {
         previewVideoRef.current.muted = true;
         previewVideoRef.current.play().catch(console.error);
       }
+
+      if (autoEnter) {
+        setInRoom(true);
+      }
     } catch (err) {
       console.error('Camera/Mic permission error:', err);
-      setPermissionDenied(true);
-      setErrorMsg('Browser camera/microphone permission was denied or blocked.');
+      if (!autoEnter) {
+        setPermissionDenied(true);
+        setErrorMsg('Browser camera/microphone permission was denied or blocked.');
+      }
     }
   };
 
@@ -208,7 +217,7 @@ const LiveInterviewRoom = () => {
   // Enter Room and Initialize WebRTC PeerConnection
   const handleEnterRoom = () => {
     if (!localStream) {
-      requestMediaPermission();
+      requestMediaPermission(true);
       return;
     }
     setInRoom(true);
@@ -250,26 +259,35 @@ const LiveInterviewRoom = () => {
         // Add local tracks
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-        // Remote tracks listener
+        // Universal Remote tracks listener (Handles streams array or individual track attachment)
         pc.ontrack = (event) => {
-          console.log('Remote WebRTC track received:', event.streams);
-          if (event.streams && event.streams[0]) {
-            setRemoteStream(event.streams[0]);
+          console.log('Remote WebRTC track received:', event);
+          setRemoteStream(prevStream => {
+            let newStream = prevStream;
+            if (!newStream) {
+              newStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream();
+            }
+            if (event.track) {
+              newStream.addTrack(event.track);
+            }
             setConnected(true);
             if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = event.streams[0];
+              remoteVideoRef.current.srcObject = newStream;
               remoteVideoRef.current.play().catch(console.error);
             }
-          }
+            return newStream;
+          });
         };
 
         // Connection state listeners
         pc.onconnectionstatechange = () => {
+          console.log('WebRTC Connection State:', pc.connectionState);
           if (pc.connectionState === 'connected') setConnected(true);
           else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') setConnected(false);
         };
 
         pc.oniceconnectionstatechange = () => {
+          console.log('WebRTC ICE Connection State:', pc.iceConnectionState);
           if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') setConnected(true);
         };
 
@@ -525,7 +543,7 @@ const LiveInterviewRoom = () => {
 
             {!hasPermission ? (
               <button
-                onClick={requestMediaPermission}
+                onClick={() => requestMediaPermission(false)}
                 className="w-full py-4 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-xl shadow-rose-500/25 flex items-center justify-center gap-2.5 transform hover:scale-105"
               >
                 <Video className="w-5 h-5" />
