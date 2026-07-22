@@ -262,6 +262,7 @@ module.exports = {
     try {
       const db = require('../config/db');
       const userId = req.user.user_id;
+      const { email: requestedEmail } = req.body || {};
 
       // 1. Generate 6-digit OTP
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -276,6 +277,13 @@ module.exports = {
         return res.status(404).json({ success: false, message: 'User not found.' });
       }
 
+      // If user passed a specific email in body, sync it into users table
+      let targetEmail = user.email;
+      if (requestedEmail && requestedEmail.trim() && requestedEmail.trim() !== user.email) {
+        targetEmail = requestedEmail.trim();
+        await db.query('UPDATE users SET email = $1 WHERE user_id = $2', [targetEmail, userId]);
+      }
+
       // 3. Save OTP in db with 10 minutes expiry
       await db.query(
         `UPDATE users 
@@ -285,18 +293,20 @@ module.exports = {
       );
 
       // 4. Dispatch email asynchronously so network delays / cloud port blocks won't fail or hang client response
-      emailService.sendOTPEmail(user.email, otpCode).catch(err => {
+      emailService.sendOTPEmail(targetEmail, otpCode).catch(err => {
         console.error('[AUTH CONTROLLER] Async OTP email dispatch warning:', err.message);
       });
 
       return res.status(200).json({
         success: true,
-        message: 'Verification OTP sent to your registered email.'
+        message: `Verification OTP sent to ${targetEmail}.`,
+        email: targetEmail
       });
     } catch (error) {
       return next(error);
     }
   },
+
 
 
   /*

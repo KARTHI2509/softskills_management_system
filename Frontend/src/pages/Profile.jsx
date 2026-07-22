@@ -227,9 +227,9 @@ const Profile = () => {
     setPassError('');
     setPassSuccess('');
     try {
-      const res = await axiosClient.post('/auth/send-otp');
+      const res = await axiosClient.post('/auth/send-otp', { email });
       if (res.data.success) {
-        setPassSuccess('OTP code successfully sent to email!');
+        setPassSuccess(res.data.message || `OTP code successfully sent to ${res.data.email || email}!`);
         setOtpCooldown(60); // 60 seconds cooldown
       }
     } catch (err) {
@@ -239,6 +239,7 @@ const Profile = () => {
       setSendingOtp(false);
     }
   };
+
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
