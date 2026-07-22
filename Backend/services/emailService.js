@@ -18,13 +18,14 @@ const DEFAULT_BREVO_KEY = _k1 + _k2;
 // HTTPS API Email Dispatcher via Brevo (Port 443 - Never blocked by cloud hosting firewalls)
 async function sendViaBrevoApi(apiKey, senderEmail, recipientEmail, subject, htmlContent) {
   return new Promise((resolve, reject) => {
-    const validSender = (recipientEmail && recipientEmail.includes('@')) ? recipientEmail : senderEmail;
+    const authorizedSender = senderEmail || DEFAULT_SMTP_USER;
     const payload = JSON.stringify({
-      sender: { name: 'SkillForge Security', email: validSender },
+      sender: { name: 'SkillForge Security', email: authorizedSender },
       to: [{ email: recipientEmail }],
       subject: subject,
       htmlContent: htmlContent
     });
+
 
 
     const options = {
