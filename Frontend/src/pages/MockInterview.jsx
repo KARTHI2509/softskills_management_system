@@ -79,6 +79,16 @@ const MockInterview = () => {
   const [recordTime, setRecordTime] = useState(0);
   const [writtenPitch, setWrittenPitch] = useState('');
   
+  // Webcam & MediaRecorder states & refs
+  const [recordedBlob, setRecordedBlob] = useState(null);
+  const [recordedVideoUrl, setRecordedVideoUrl] = useState(null);
+  const [cameraError, setCameraError] = useState(null);
+
+  const webcamVideoRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
+
   // Modals & Panels toggle states
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -102,9 +112,16 @@ const MockInterview = () => {
 
   useEffect(() => {
     fetchHistory();
+
+    return () => {
+      // Cleanup camera stream on unmount
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
-  // Timer logic for simulated recording
+  // Timer logic for recording
   useEffect(() => {
     if (recording) {
       timerRef.current = setInterval(() => {
@@ -125,6 +142,137 @@ const MockInterview = () => {
 
   const triggerFileSelect = () => {
     fileInputRef.current.click();
+  };
+
+  // Start HTML5 Live Webcam Video & Audio Recording
+  const startWebcamRecording = async () => {
+    setCameraError(null);
+    setFeedback(null);
+    setVideoUrl(null);
+    setRecordedBlob(null);
+    if (recordedVideoUrl) {
+      URL.revokeObjectURL(recordedVideoUrl);
+      setRecordedVideoUrl(null);
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        audio: true
+      });
+      streamRef.current = stream;
+
+      let mimeType = 'video/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+          mimeType = 'video/webm;codecs=vp9,opus';
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+          mimeType = 'video/webm';
+        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+          mimeType = 'video/mp4';
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        setRecordedBlob(blob);
+        const previewUrl = URL.createObjectURL(blob);
+        setRecordedVideoUrl(previewUrl);
+
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+      };
+
+      recorder.start(1000);
+      setRecording(true);
+
+      setTimeout(() => {
+        if (webcamVideoRef.current) {
+          webcamVideoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Camera/Microphone access error:', err);
+      setCameraError('Camera & Microphone permission denied or device not found. Please allow camera permissions in your browser address bar or use the Upload Video button.');
+      setRecording(false);
+    }
+  };
+
+  // Stop Webcam Recording
+  const stopWebcamRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setRecording(false);
+  };
+
+  const resetRecording = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (recordedVideoUrl) {
+      URL.revokeObjectURL(recordedVideoUrl);
+    }
+    setRecordedBlob(null);
+    setRecordedVideoUrl(null);
+    setRecording(false);
+    setCameraError(null);
+  };
+
+  // Upload recorded webcam video file to Cloudinary & trigger AI Evaluation
+  const handleUploadRecordedBlob = async () => {
+    if (!recordedBlob) return;
+    const file = new File([recordedBlob], `recorded_interview_${Date.now()}.webm`, { type: recordedBlob.type });
+
+    const formData = new FormData();
+    formData.append('video', file);
+
+    setUploading(true);
+    setFeedback(null);
+
+    try {
+      const uploadRes = await axiosClient.post('/mock-interview/upload-recording', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (uploadRes.data.success) {
+        const interview = uploadRes.data.interview;
+        setVideoUrl(interview.recording_url);
+
+        const evalRes = await axiosClient.post('/mock-interview/ai-evaluate', {
+          interviewId: interview.interview_id,
+          questionText: selectedQuestion.text,
+          responseText: writtenPitch || 'Live webcam video and audio response pitch recorded for practice evaluation.'
+        });
+
+        if (evalRes.data.success) {
+          setFeedback(evalRes.data.feedback);
+          fetchHistory();
+        }
+      }
+    } catch (err) {
+      console.error('Mock Interview video evaluation failed:', err);
+      alert('Upload evaluation failed. Please make sure the backend server is active.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleFileUpload = async (event) => {
@@ -207,42 +355,10 @@ const MockInterview = () => {
     setSelectedQuestion(questions[nextIndex]);
     setFeedback(null);
     setVideoUrl(null);
+    resetRecording();
     setShowGuidelines(false);
   };
 
-  const toggleRecording = () => {
-    if (!recording) {
-      setRecording(true);
-      setFeedback(null);
-      setVideoUrl(null);
-    } else {
-      setRecording(false);
-      // Auto-populate response transcript and trigger AI evaluation
-      const transcript = "Hi, my name is Krishna. I am a Computer Science major. I have worked on multiple full-stack React projects utilizing Node.js Express microservices and relational PostgreSQL databases. I have practiced keeping my coding clear, modular, and structured using the STAR method.";
-      setWrittenPitch(transcript);
-      
-      // Auto trigger evaluation
-      setUploading(true);
-      setTimeout(async () => {
-        try {
-          const evalRes = await axiosClient.post('/mock-interview/ai-evaluate', {
-            interviewId: '00000000-0000-0000-0000-000000000000',
-            questionText: selectedQuestion.text,
-            responseText: transcript
-          });
-
-          if (evalRes.data.success) {
-            setFeedback(evalRes.data.feedback);
-            fetchHistory();
-          }
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setUploading(false);
-        }
-      }, 1000);
-    }
-  };
 
   const formatDate = (dateString) => {
     const d = new Date(dateString);
@@ -388,57 +504,127 @@ const MockInterview = () => {
 
             {/* Video Input Frame */}
             <div className="space-y-6">
-              <div className="border-2 border-dashed border-slate-200 dark:border-slate-800/80 rounded-3xl p-8 text-center flex flex-col items-center justify-center bg-slate-50/20 dark:bg-slate-950/10 relative overflow-hidden">
-                <div className={`p-4 bg-blue-500/10 text-blue-500 rounded-full border border-blue-500/15 mb-4 relative ${recording ? 'text-rose-500 bg-rose-500/10 animate-pulse' : ''}`}>
-                  <Video className="w-8 h-8" />
+              {cameraError && (
+                <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{cameraError}</span>
                 </div>
+              )}
+
+              <div className="border-2 border-dashed border-slate-200 dark:border-slate-800/80 rounded-3xl p-6 text-center flex flex-col items-center justify-center bg-slate-50/20 dark:bg-slate-950/10 relative overflow-hidden">
                 
-                {recording ? (
-                  <div className="space-y-3">
-                    <p className="font-extrabold text-sm text-rose-500 flex items-center justify-center gap-2">
-                      <span className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
-                      Live Recording: {formatTimer(recordTime)}
-                    </p>
-                    <p className="text-xs text-slate-400 font-semibold">Speak clearly. Click Stop when complete to auto-analyze transcript.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <p className="font-extrabold text-sm text-slate-800 dark:text-slate-200">Record or Select your video response</p>
-                    <p className="text-xs text-slate-450 font-bold">Supports MP4, WebM up to 50MB</p>
+                {/* 1. Live Webcam Feed Mode */}
+                {recording && (
+                  <div className="w-full space-y-4">
+                    <div className="relative w-full max-w-2xl mx-auto rounded-2xl overflow-hidden shadow-2xl border-2 border-rose-500/40 bg-black">
+                      <video 
+                        ref={webcamVideoRef} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="w-full h-80 object-cover transform -scale-x-100" 
+                      />
+                      <div className="absolute top-4 left-4 bg-rose-600/90 text-white text-xs font-black px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-md backdrop-blur-sm">
+                        <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+                        Live Recording: {formatTimer(recordTime)}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-center gap-4">
+                      <button 
+                        type="button"
+                        onClick={stopWebcamRecording}
+                        className="flex items-center gap-2 px-8 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg shadow-rose-600/20 transition-all transform hover:scale-105"
+                      >
+                        <span className="w-3 h-3 rounded-sm bg-white" />
+                        Stop & Finish Recording
+                      </button>
+                    </div>
                   </div>
                 )}
-                
-                {/* Action controls */}
-                <div className="flex flex-wrap items-center justify-center gap-4 mt-6">
-                  <button 
-                    onClick={toggleRecording}
-                    className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black uppercase shadow transition-all ${
-                      recording 
-                        ? 'bg-rose-600 hover:bg-rose-700 text-white' 
-                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/10'
-                    }`}
-                  >
-                    <span className={`w-2.5 h-2.5 rounded-full bg-white ${recording ? 'animate-pulse' : ''}`} />
-                    {recording ? 'Stop Recording' : 'Start Recording'}
-                  </button>
 
-                  <input 
-                    type="file" 
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept="video/*"
-                    className="hidden" 
-                  />
-                  <button 
-                    onClick={triggerFileSelect}
-                    disabled={uploading || recording}
-                    className="flex items-center gap-2 px-5 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black uppercase text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Video
-                  </button>
-                </div>
+                {/* 2. Recorded Video Playback Preview Mode */}
+                {!recording && recordedVideoUrl && (
+                  <div className="w-full space-y-4">
+                    <div className="relative w-full max-w-2xl mx-auto rounded-2xl overflow-hidden shadow-2xl border-2 border-emerald-500/40 bg-black">
+                      <video 
+                        src={recordedVideoUrl} 
+                        controls 
+                        className="w-full h-80 object-cover" 
+                      />
+                      <div className="absolute top-4 left-4 bg-emerald-600/90 text-white text-xs font-black px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-md backdrop-blur-sm">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Video Recorded & Ready for AI Analysis
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap justify-center gap-4">
+                      <button 
+                        type="button"
+                        onClick={handleUploadRecordedBlob}
+                        disabled={uploading}
+                        className="flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        {uploading ? 'Analyzing Recording...' : 'Analyze Video with AI'}
+                      </button>
+
+                      <button 
+                        type="button"
+                        onClick={resetRecording}
+                        disabled={uploading}
+                        className="flex items-center gap-2 px-6 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-wider transition-colors"
+                      >
+                        Re-record Video
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Default Initial Mode */}
+                {!recording && !recordedVideoUrl && (
+                  <div className="w-full flex flex-col items-center">
+                    <div className="p-4 bg-blue-500/10 text-blue-500 rounded-full border border-blue-500/15 mb-4">
+                      <Video className="w-8 h-8" />
+                    </div>
+                    
+                    <div className="space-y-1 mb-6">
+                      <p className="font-extrabold text-sm text-slate-800 dark:text-slate-200">Record live video with your camera or upload a video file</p>
+                      <p className="text-xs text-slate-450 font-bold">Captures Video + Audio for AI communication & behavioral feedback</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-4">
+                      <button 
+                        type="button"
+                        onClick={startWebcamRecording}
+                        className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all transform hover:scale-105"
+                      >
+                        <Video className="w-4 h-4" />
+                        Start Camera & Record Video
+                      </button>
+
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept="video/*"
+                        className="hidden" 
+                      />
+                      <button 
+                        type="button"
+                        onClick={triggerFileSelect}
+                        disabled={uploading}
+                        className="flex items-center gap-2 px-6 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black uppercase text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload Video File
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
+
 
               {/* Text pitching */}
               <div className="space-y-3">
