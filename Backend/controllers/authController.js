@@ -292,10 +292,15 @@ module.exports = {
         [otpCode, userId]
       );
 
-      // 4. Dispatch email asynchronously so network delays / cloud port blocks won't fail or hang client response
-      emailService.sendOTPEmail(targetEmail, otpCode).catch(err => {
-        console.error('[AUTH CONTROLLER] Async OTP email dispatch warning:', err.message);
-      });
+      // 4. Dispatch email with await to ensure Nodemailer completes socket handshake before HTTP response closes
+      const emailResult = await emailService.sendOTPEmail(targetEmail, otpCode);
+      if (!emailResult.success) {
+        console.error('[AUTH CONTROLLER] Email dispatch error:', emailResult.error);
+        return res.status(500).json({
+          success: false,
+          message: emailResult.message || 'Failed to send OTP verification email. Please check SMTP configuration.'
+        });
+      }
 
       return res.status(200).json({
         success: true,
@@ -306,6 +311,7 @@ module.exports = {
       return next(error);
     }
   },
+
 
 
 
