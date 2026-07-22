@@ -2,7 +2,43 @@ require('dotenv').config();
 const nodemailer = require('nodemailer');
 
 const DEFAULT_SMTP_USER = 'karthikthalipineni@gmail.com';
-const DEFAULT_SMTP_PASS = 'rnos dmdx wgnm nsby';
+const DEFAULT_SMTP_PASS = 'rnosdmdxwgnmnsby';
+
+async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions) {
+  const port = parseInt(smtpPort);
+  const primaryOptions = {
+    host: smtpHost,
+    port: port,
+    secure: port === 465,
+    auth: { user: smtpUser, pass: smtpPass },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000
+  };
+
+  try {
+    const transporter = nodemailer.createTransport(primaryOptions);
+    return await transporter.sendMail(mailOptions);
+  } catch (err) {
+    if (port !== 465) {
+      console.warn(`[EMAIL SERVICE] Primary transport (port ${port}) failed: ${err.message}. Retrying via Port 465 SSL...`);
+      const sslOptions = {
+        host: smtpHost,
+        port: 465,
+        secure: true,
+        auth: { user: smtpUser, pass: smtpPass },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000
+      };
+      const sslTransporter = nodemailer.createTransport(sslOptions);
+      return await sslTransporter.sendMail(mailOptions);
+    }
+    throw err;
+  }
+}
 
 module.exports = {
   /*
@@ -20,32 +56,7 @@ module.exports = {
 
     const resetUrl = `http://localhost:3000/reset-password?token=${recoveryToken}`;
 
-    if (!smtpUser || !smtpPass) {
-      console.log(`[EMAIL SERVICE] Missing SMTP credentials. Fallback to console logs.`);
-      console.log(`[EMAIL SERVICE] Reset URL: ${resetUrl}`);
-      return {
-        success: true,
-        message: 'Password reset link outputted to console logs (fallback).'
-      };
-    }
-
     try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort),
-        secure: parseInt(smtpPort) === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass
-        },
-        tls: {
-          rejectUnauthorized: false
-        },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 8000
-      });
-
       const senderHeader = `"SkillForge Security" <${smtpUser}>`;
 
       const mailOptions = {
@@ -62,8 +73,8 @@ module.exports = {
         `
       };
 
-      const info = await transporter.sendMail(mailOptions);
-      console.log(`[EMAIL SERVICE] SMTP dispatch complete. Msg ID: ${info.messageId}`);
+      const info = await dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions);
+      console.log(`[EMAIL SERVICE] SMTP dispatch complete to ${recipientEmail}. Msg ID: ${info.messageId}`);
       return {
         success: true,
         message: 'Password reset email dispatched successfully via SMTP.'
@@ -95,31 +106,7 @@ module.exports = {
     const smtpUser = process.env.SMTP_USER || DEFAULT_SMTP_USER;
     const smtpPass = process.env.SMTP_PASS || DEFAULT_SMTP_PASS;
 
-    if (!smtpUser || !smtpPass) {
-      console.log(`[EMAIL SERVICE] Missing SMTP credentials. Fallback to console logs.`);
-      return {
-        success: true,
-        message: 'OTP outputted to console logs (fallback).'
-      };
-    }
-
     try {
-      const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: parseInt(smtpPort),
-        secure: parseInt(smtpPort) === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass
-        },
-        tls: {
-          rejectUnauthorized: false
-        },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 8000
-      });
-
       const senderHeader = `"SkillForge Security" <${smtpUser}>`;
 
       const mailOptions = {
@@ -138,7 +125,7 @@ module.exports = {
         `
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const info = await dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions);
       console.log(`[EMAIL SERVICE] OTP SMTP dispatch complete to ${recipientEmail}. Msg ID: ${info.messageId}`);
       return {
         success: true,
@@ -154,6 +141,7 @@ module.exports = {
     }
   }
 };
+
 
 
 
