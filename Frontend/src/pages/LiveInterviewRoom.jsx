@@ -1,7 +1,7 @@
 /*
 ------------------------------------------------
 File: LiveInterviewRoom.jsx
-Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room with Pre-Call Camera/Mic Permission Gate & Full Re-connection Engine.
+Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room with Pre-Call Camera/Mic Permission Gate & Bi-Directional Signaling Engine.
 Responsibilities: Prompts browser camera/mic permissions via interactive button, previews local camera, manages WebRTC peer connection with STUN/TURN relays, dual video feeds, and live teacher scoring panel.
 Dependencies: react, react-router-dom, axiosClient, lucide-react
 ------------------------------------------------
@@ -156,6 +156,13 @@ const LiveInterviewRoom = () => {
     }
   };
 
+  // Force Remote Video Playback on click
+  const handleRemoteVideoClick = () => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.play().catch(console.error);
+    }
+  };
+
   // Bind localStream to video elements whenever localStream changes
   useEffect(() => {
     if (localStream) {
@@ -215,6 +222,7 @@ const LiveInterviewRoom = () => {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:global.stun.twilio.com:3478' },
+        { urls: 'stun:stun.services.mozilla.com' },
         {
           urls: 'turn:openrelay.metered.ca:80',
           username: 'openrelayproject',
@@ -286,7 +294,7 @@ const LiveInterviewRoom = () => {
       }
     };
 
-    // Send "join-room" signal
+    // Send "join-room" & "request-offer" signals
     axiosClient.post('/live-interview/signal/send', {
       sessionId,
       receiverId: peerId,
@@ -315,6 +323,14 @@ const LiveInterviewRoom = () => {
       } catch (err) {
         console.error('Create offer error:', err);
       }
+    } else {
+      // Non-initiator explicitly requests SDP offer from initiator
+      axiosClient.post('/live-interview/signal/send', {
+        sessionId,
+        receiverId: peerId,
+        signalType: 'request-offer',
+        payload: { requestedAt: new Date() }
+      }).catch(console.error);
     }
   };
 
@@ -350,9 +366,9 @@ const LiveInterviewRoom = () => {
             const pc = pcRef.current;
             if (!pc) continue;
 
-            if (sig.signal_type === 'join-room') {
-              console.log('Peer joined room signal received');
-              if (isInitiator && pc.connectionState !== 'connected') {
+            if (sig.signal_type === 'join-room' || sig.signal_type === 'request-offer') {
+              console.log('Peer join-room/request-offer signal received');
+              if (isInitiator) {
                 setupPeerConnection();
               }
             } else if (sig.signal_type === 'offer') {
@@ -666,7 +682,10 @@ const LiveInterviewRoom = () => {
         {/* Left 2 Columns: Video Feeds */}
         <div className="lg:col-span-2 space-y-6">
           {/* Main Remote Video Stream (Candidate or Faculty) */}
-          <div className="relative w-full h-96 bg-slate-950 rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-slate-800 shadow-2xl flex items-center justify-center">
+          <div 
+            onClick={handleRemoteVideoClick}
+            className="relative w-full h-96 bg-slate-950 rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-slate-800 shadow-2xl flex items-center justify-center cursor-pointer"
+          >
             {remoteStream ? (
               <video
                 ref={setRemoteVideoRef}
