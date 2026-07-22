@@ -58,21 +58,21 @@ const LiveInterviewRoom = () => {
           const user = profileRes.data.user;
           setCurrentUserId(user.user_id);
           setUserRole(user.role);
-        }
 
-        const sessionRes = await axiosClient.get(`/live-interview/session/${sessionId}`);
-        if (sessionRes.data.success) {
-          const sess = sessionRes.data.session;
-          setSession(sess);
+          const sessionRes = await axiosClient.get(`/live-interview/session/${sessionId}`);
+          if (sessionRes.data.success) {
+            const sess = sessionRes.data.session;
+            setSession(sess);
 
-          // Determine target peer ID
-          const isFaculty = profileRes.data.user.role === 'FACULTY' || profileRes.data.user.role === 'ADMIN';
-          const targetPeerId = isFaculty ? sess.student_id : sess.faculty_id;
-          setPeerId(targetPeerId);
+            // Determine target peer ID
+            const isFaculty = user.role === 'FACULTY' || user.role === 'ADMIN' || user.user_id === sess.faculty_id;
+            const targetPeerId = isFaculty ? sess.student_id : sess.faculty_id;
+            setPeerId(targetPeerId);
 
-          // Update status to LIVE if scheduled
-          if (sess.status === 'SCHEDULED') {
-            axiosClient.put(`/live-interview/status/${sessionId}`, { status: 'LIVE' });
+            // Update status to LIVE if scheduled
+            if (sess.status === 'SCHEDULED') {
+              axiosClient.put(`/live-interview/status/${sessionId}`, { status: 'LIVE' });
+            }
           }
         }
       } catch (err) {
@@ -118,7 +118,7 @@ const LiveInterviewRoom = () => {
 
         setLocalStream(stream);
 
-        // Initialize PeerConnection with robust STUN & TURN Relay servers
+        // Initialize PeerConnection with STUN & TURN Relay servers
         const pc = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -205,8 +205,10 @@ const LiveInterviewRoom = () => {
           }
         };
 
-        // If Faculty/Caller, send initial offer and re-broadcast every 3s until connected
-        if (userRole === 'FACULTY' || userRole === 'ADMIN') {
+        // Determine if this user is the initiator (Faculty / Admin or room owner)
+        const isInitiator = userRole === 'FACULTY' || userRole === 'ADMIN' || currentUserId === session?.faculty_id;
+
+        if (isInitiator) {
           await sendOffer();
           offerIntervalRef.current = setInterval(() => {
             if (pcRef.current && pcRef.current.connectionState !== 'connected') {
@@ -222,7 +224,8 @@ const LiveInterviewRoom = () => {
             if (sigRes.data.success && sigRes.data.signals && sigRes.data.signals.length > 0) {
               for (const sig of sigRes.data.signals) {
                 if (sig.signal_type === 'offer') {
-                  if (pc.signalingState !== 'stable') {
+                  // Ready to accept offer when signalingState is stable
+                  if (pc.signalingState === 'stable' || pc.signalingState === 'have-local-offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
@@ -277,7 +280,7 @@ const LiveInterviewRoom = () => {
         localStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [currentUserId, peerId]);
+  }, [currentUserId, peerId, userRole, session]);
 
   const toggleMuteAudio = () => {
     if (localStream) {
