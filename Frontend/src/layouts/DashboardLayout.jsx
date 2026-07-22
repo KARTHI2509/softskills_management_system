@@ -80,8 +80,9 @@ const DashboardLayout = () => {
       return [
         { name: 'Dashboard', path: '/student/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
         { name: 'My Tasks', path: '/student/tasks', icon: <ClipboardList className="w-5 h-5" /> },
-        { name: 'Communication', path: '/communication', icon: <BookOpen className="w-5 h-5" /> },
+        { name: 'Live 1-on-1 Interview', path: '/live-interview/schedule', icon: <GraduationCap className="w-5 h-5" /> },
         { name: 'Mock Interview', path: '/mock-interview', icon: <GraduationCap className="w-5 h-5" /> },
+        { name: 'Communication', path: '/communication', icon: <BookOpen className="w-5 h-5" /> },
         { name: 'Group Discussion', path: '/group-discussion', icon: <Users className="w-5 h-5" /> },
         { name: 'Resume Analyzer', path: '/resume-builder', icon: <FileText className="w-5 h-5" /> },
         { name: 'Aptitude Tests', path: '/aptitude', icon: <CheckSquare className="w-5 h-5" /> },
@@ -97,6 +98,7 @@ const DashboardLayout = () => {
     if (user?.role === 'FACULTY') {
       return [
         { name: 'Faculty Dashboard', path: '/faculty/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+        { name: 'Live 1-on-1 Interview', path: '/live-interview/schedule', icon: <GraduationCap className="w-5 h-5" /> },
         { name: 'Task Manager', path: '/faculty/tasks', icon: <ClipboardList className="w-5 h-5" /> },
         { name: 'My Students', path: '/faculty/dashboard', icon: <Users className="w-5 h-5" /> },
         { name: 'Manage Questions', path: '/faculty/questions', icon: <CheckSquare className="w-5 h-5" /> },
@@ -109,6 +111,7 @@ const DashboardLayout = () => {
     if (user?.role === 'PLACEMENT_OFFICER') {
       return [
         { name: 'Placement Dashboard', path: '/placement/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+        { name: 'Live 1-on-1 Interview', path: '/live-interview/schedule', icon: <GraduationCap className="w-5 h-5" /> },
         { name: 'Eligible Shortlist', path: '/placement/eligible', icon: <GraduationCap className="w-5 h-5" /> },
         { name: 'Dept Comparison', path: '/placement/comparison', icon: <BarChart3 className="w-5 h-5" /> },
         ...common
@@ -118,6 +121,7 @@ const DashboardLayout = () => {
     if (user?.role === 'ADMIN') {
       return [
         { name: 'Admin Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+        { name: 'Live 1-on-1 Interview', path: '/live-interview/schedule', icon: <GraduationCap className="w-5 h-5" /> },
         { name: 'Manage Users', path: '/admin/users', icon: <Users className="w-5 h-5" /> },
         { name: 'System Settings', path: '/settings', icon: <Settings className="w-5 h-5" /> },
         ...common

@@ -39,6 +39,7 @@ const certificateRoutes = require('./routes/certificateRoutes');
 const codingRoutes = require('./routes/codingRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const liveInterviewRoutes = require('./routes/liveInterviewRoutes');
 
 // Background Jobs
 const { startOverdueTaskJob } = require('./jobs/overdueTaskJob');
@@ -72,6 +73,7 @@ app.use('/api/faculty', facultyRoutes);
 app.use('/api/placement', placementRoutes);
 app.use('/api/communication', communicationRoutes);
 app.use('/api/mock-interview', mockInterviewRoutes);
+app.use('/api/live-interview', liveInterviewRoutes);
 app.use('/api/group-discussion', groupDiscussionRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/aptitude', aptitudeRoutes);
@@ -82,6 +84,7 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/coding', codingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+
 
 // Fallback Route (404 Page)
 app.use((req, res, next) => {

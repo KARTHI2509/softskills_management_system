@@ -54,8 +54,11 @@ import CodingArena from '../pages/CodingArena';
 import FacultyStudentProfile from '../pages/FacultyStudentProfile';
 import FacultyTaskManager from '../pages/FacultyTaskManager';
 import StudentTaskBoard from '../pages/StudentTaskBoard';
+import LiveInterviewSchedule from '../pages/LiveInterviewSchedule';
+import LiveInterviewRoom from '../pages/LiveInterviewRoom';
 
 const AppRoutes = () => {
+
   return (
     <Routes>
       {/* Public Pages */}
@@ -188,7 +191,16 @@ const AppRoutes = () => {
           path="/coding" 
           element={<ProtectedRoute allowedRoles={['STUDENT']}><CodingArena /></ProtectedRoute>} 
         />
+        <Route 
+          path="/live-interview/schedule" 
+          element={<ProtectedRoute allowedRoles={['STUDENT', 'FACULTY', 'PLACEMENT_OFFICER', 'ADMIN']}><LiveInterviewSchedule /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/live-interview/room/:sessionId" 
+          element={<ProtectedRoute allowedRoles={['STUDENT', 'FACULTY', 'PLACEMENT_OFFICER', 'ADMIN']}><LiveInterviewRoom /></ProtectedRoute>} 
+        />
       </Route>
+
 
       {/* 404 Fallback */}
       <Route path="*" element={<NotFound />} />
