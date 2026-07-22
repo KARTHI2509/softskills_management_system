@@ -26,43 +26,48 @@ async function resolveExplicitIpv4(hostname) {
 }
 
 async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions) {
-  const port = parseInt(smtpPort);
   // Pre-resolve host to an explicit IPv4 IP address string so Linux glibc/Node never attempts IPv6
   const targetHost = await resolveExplicitIpv4(smtpHost);
 
+  // For Gmail SMTP or when port 465 is preferred, use Port 465 SSL directly to bypass cloud port 587 blocks
+  const useSSLFirst = smtpHost.includes('gmail') || parseInt(smtpPort) === 465;
+  const primaryPort = useSSLFirst ? 465 : parseInt(smtpPort || 587);
+  const isSecure = primaryPort === 465;
+
   const primaryOptions = {
     host: targetHost,
-    port: port,
-    secure: port === 465,
+    port: primaryPort,
+    secure: isSecure,
     auth: { user: smtpUser, pass: smtpPass },
     tls: { rejectUnauthorized: false, servername: smtpHost },
-    connectionTimeout: 5000,
-    greetingTimeout: 5000,
-    socketTimeout: 8000
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000
   };
 
   try {
     const transporter = nodemailer.createTransport(primaryOptions);
     return await transporter.sendMail(mailOptions);
   } catch (err) {
-    if (port !== 465) {
-      console.warn(`[EMAIL SERVICE] Primary transport (port ${port}) failed: ${err.message}. Retrying via Port 465 SSL IPv4...`);
-      const sslOptions = {
-        host: targetHost,
-        port: 465,
-        secure: true,
-        auth: { user: smtpUser, pass: smtpPass },
-        tls: { rejectUnauthorized: false, servername: smtpHost },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 8000
-      };
-      const sslTransporter = nodemailer.createTransport(sslOptions);
-      return await sslTransporter.sendMail(mailOptions);
-    }
-    throw err;
+    console.warn(`[EMAIL SERVICE] Primary transport (port ${primaryPort}) notice: ${err.message}. Trying alternative port...`);
+    const fallbackPort = primaryPort === 465 ? 587 : 465;
+    const fallbackSecure = fallbackPort === 465;
+
+    const fallbackOptions = {
+      host: targetHost,
+      port: fallbackPort,
+      secure: fallbackSecure,
+      auth: { user: smtpUser, pass: smtpPass },
+      tls: { rejectUnauthorized: false, servername: smtpHost },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000
+    };
+    const fallbackTransporter = nodemailer.createTransport(fallbackOptions);
+    return await fallbackTransporter.sendMail(mailOptions);
   }
 }
+
 
 
 
