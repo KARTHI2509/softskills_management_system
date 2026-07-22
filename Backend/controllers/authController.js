@@ -275,8 +275,10 @@ module.exports = {
         [otpCode, userId]
       );
 
-      // 4. Send email
-      await emailService.sendOTPEmail(user.email, otpCode);
+      // 4. Dispatch email asynchronously so network delays / cloud port blocks won't fail or hang client response
+      emailService.sendOTPEmail(user.email, otpCode).catch(err => {
+        console.error('[AUTH CONTROLLER] Async OTP email dispatch warning:', err.message);
+      });
 
       return res.status(200).json({
         success: true,
@@ -286,6 +288,7 @@ module.exports = {
       return next(error);
     }
   },
+
 
   /*
   GET /api/auth/settings

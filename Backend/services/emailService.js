@@ -37,7 +37,10 @@ module.exports = {
         },
         tls: {
           rejectUnauthorized: false
-        }
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000
       });
 
       const senderHeader = smtpUser ? `"SkillForge Team" <${smtpUser}>` : '"SkillForge Team" <noreply@skillforge.edu>';
@@ -108,7 +111,10 @@ module.exports = {
         },
         tls: {
           rejectUnauthorized: false
-        }
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000
       });
 
       const senderHeader = smtpUser ? `"SkillForge Security" <${smtpUser}>` : '"SkillForge Security" <security@skillforge.edu>';
@@ -145,4 +151,5 @@ module.exports = {
     }
   }
 };
+
 
