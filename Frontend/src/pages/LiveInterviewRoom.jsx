@@ -12,7 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { 
   Video, VideoOff, Mic, MicOff, PhoneOff, Award, CheckCircle, 
-  User, Clock, MessageSquare, AlertCircle, Sparkles, Sliders 
+  User, Clock, MessageSquare, AlertCircle, Sparkles, Sliders, RefreshCw 
 } from 'lucide-react';
 
 const LiveInterviewRoom = () => {
@@ -46,6 +46,7 @@ const LiveInterviewRoom = () => {
   const remoteVideoRef = useRef(null);
   const pcRef = useRef(null);
   const pollIntervalRef = useRef(null);
+  const offerIntervalRef = useRef(null);
   const timerRef = useRef(null);
 
   // Fetch session details & user profile
@@ -64,7 +65,7 @@ const LiveInterviewRoom = () => {
           const sess = sessionRes.data.session;
           setSession(sess);
 
-          // Determine peer ID
+          // Determine target peer ID
           const isFaculty = profileRes.data.user.role === 'FACULTY' || profileRes.data.user.role === 'ADMIN';
           const targetPeerId = isFaculty ? sess.student_id : sess.faculty_id;
           setPeerId(targetPeerId);
@@ -83,16 +84,28 @@ const LiveInterviewRoom = () => {
     initRoom();
   }, [sessionId]);
 
-  // Bind localStream to video element whenever localStream changes
+  // Bind localStream to local video element and force playback
   useEffect(() => {
     if (localStream && localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.muted = true;
+      localVideoRef.current.play().catch(e => console.log('Local video play check:', e));
     }
   }, [localStream]);
 
-  // Start Local Media Stream & Setup WebRTC
+  // Bind remoteStream to remote video element and force playback
+  useEffect(() => {
+    if (remoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(e => console.log('Remote video play check:', e));
+    }
+  }, [remoteStream]);
+
+  // Start Media Stream & WebRTC Engine
   useEffect(() => {
     if (!currentUserId || !peerId) return;
+
+    let isMounted = true;
 
     const setupMediaAndWebRTC = async () => {
       try {
@@ -101,28 +114,39 @@ const LiveInterviewRoom = () => {
           audio: true
         });
 
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
+        if (!isMounted) return;
 
-        // Initialize PeerConnection with Google STUN servers
+        setLocalStream(stream);
+
+        // Initialize PeerConnection with robust public STUN servers
         const pc = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' }
+          ]
         });
         pcRef.current = pc;
 
         // Add local tracks to PeerConnection
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-        // Handle remote stream tracks
+        // Listen for remote tracks
         pc.ontrack = (event) => {
           if (event.streams && event.streams[0]) {
             setRemoteStream(event.streams[0]);
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = event.streams[0];
-            }
             setConnected(true);
+          }
+        };
+
+        // Handle connection state changes
+        pc.onconnectionstatechange = () => {
+          console.log('WebRTC Connection State:', pc.connectionState);
+          if (pc.connectionState === 'connected') {
+            setConnected(true);
+          } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+            setConnected(false);
           }
         };
 
@@ -138,34 +162,54 @@ const LiveInterviewRoom = () => {
           }
         };
 
-        // If Faculty/Caller, initiate WebRTC SDP offer
+        // Function to create and post SDP offer
+        const sendOffer = async () => {
+          if (!pcRef.current || pcRef.current.connectionState === 'connected') return;
+          try {
+            const offer = await pcRef.current.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true
+            });
+            await pcRef.current.setLocalDescription(offer);
+            await axiosClient.post('/live-interview/signal/send', {
+              sessionId,
+              receiverId: peerId,
+              signalType: 'offer',
+              payload: offer
+            });
+          } catch (e) {
+            console.error('Send offer error:', e);
+          }
+        };
+
+        // If Faculty/Caller, send initial offer and re-broadcast every 3s until connected
         if (userRole === 'FACULTY' || userRole === 'ADMIN') {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          await axiosClient.post('/live-interview/signal/send', {
-            sessionId,
-            receiverId: peerId,
-            signalType: 'offer',
-            payload: offer
-          });
+          await sendOffer();
+          offerIntervalRef.current = setInterval(() => {
+            if (pcRef.current && pcRef.current.connectionState !== 'connected') {
+              sendOffer();
+            }
+          }, 3000);
         }
 
-        // Start Signaling Poller
+        // Signaling Poller (Polls every 1.5 seconds)
         pollIntervalRef.current = setInterval(async () => {
           try {
             const sigRes = await axiosClient.get(`/live-interview/signal/poll/${sessionId}`);
-            if (sigRes.data.success && sigRes.data.signals) {
+            if (sigRes.data.success && sigRes.data.signals && sigRes.data.signals.length > 0) {
               for (const sig of sigRes.data.signals) {
-                if (sig.signal_type === 'offer' && pc.signalingState !== 'stable') {
-                  await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-                  const answer = await pc.createAnswer();
-                  await pc.setLocalDescription(answer);
-                  await axiosClient.post('/live-interview/signal/send', {
-                    sessionId,
-                    receiverId: peerId,
-                    signalType: 'answer',
-                    payload: answer
-                  });
+                if (sig.signal_type === 'offer') {
+                  if (pc.signalingState !== 'stable') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    await axiosClient.post('/live-interview/signal/send', {
+                      sessionId,
+                      receiverId: peerId,
+                      signalType: 'answer',
+                      payload: answer
+                    });
+                  }
                 } else if (sig.signal_type === 'answer') {
                   if (pc.signalingState === 'have-local-offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
@@ -174,8 +218,8 @@ const LiveInterviewRoom = () => {
                 } else if (sig.signal_type === 'ice-candidate') {
                   try {
                     await pc.addIceCandidate(new RTCIceCandidate(sig.payload));
-                  } catch (e) {
-                    console.error('ICE Candidate error:', e);
+                  } catch (iceErr) {
+                    console.error('ICE candidate add error:', iceErr);
                   }
                 }
               }
@@ -199,7 +243,9 @@ const LiveInterviewRoom = () => {
     }, 1000);
 
     return () => {
+      isMounted = false;
       clearInterval(pollIntervalRef.current);
+      clearInterval(offerIntervalRef.current);
       clearInterval(timerRef.current);
       if (pcRef.current) {
         pcRef.current.close();
@@ -337,7 +383,10 @@ const LiveInterviewRoom = () => {
                 <p className="font-extrabold text-sm text-slate-300">
                   Waiting for {userRole === 'STUDENT' ? 'Faculty Mentor' : 'Student Candidate'} to connect live...
                 </p>
-                <p className="text-xs text-slate-500 font-semibold">WebRTC peer connection handshake active over STUN/ICE.</p>
+                <p className="text-xs text-slate-500 font-semibold flex items-center justify-center gap-1.5">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-500" />
+                  Establishing WebRTC peer connection handshake over STUN...
+                </p>
               </div>
             )}
 
