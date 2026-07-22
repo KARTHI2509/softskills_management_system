@@ -1,6 +1,7 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+const https = require('https');
 
 // Enforce IPv4 DNS resolution for cloud providers like Render that do not support outbound IPv6
 if (dns.setDefaultResultOrder) {
@@ -9,6 +10,89 @@ if (dns.setDefaultResultOrder) {
 
 const DEFAULT_SMTP_USER = 'karthikthalipineni@gmail.com';
 const DEFAULT_SMTP_PASS = 'rnosdmdxwgnmnsby';
+
+// HTTPS API Email Dispatcher via Brevo (Port 443 - Never blocked by cloud hosting firewalls)
+async function sendViaBrevoApi(apiKey, senderEmail, recipientEmail, subject, htmlContent) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      sender: { name: 'SkillForge Security', email: senderEmail },
+      to: [{ email: recipientEmail }],
+      subject: subject,
+      htmlContent: htmlContent
+    });
+
+    const options = {
+      hostname: 'api.brevo.com',
+      port: 443,
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const parsed = JSON.parse(data || '{}');
+          resolve({ success: true, messageId: parsed.messageId || 'brevo-msg' });
+        } else {
+          reject(new Error(`Brevo API error ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+// HTTPS API Email Dispatcher via Resend (Port 443 - Never blocked by cloud hosting firewalls)
+async function sendViaResendApi(apiKey, recipientEmail, subject, htmlContent) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      from: 'SkillForge <onboarding@resend.dev>',
+      to: [recipientEmail],
+      subject: subject,
+      html: htmlContent
+    });
+
+    const options = {
+      hostname: 'api.resend.com',
+      port: 443,
+      path: '/emails',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const parsed = JSON.parse(data || '{}');
+          resolve({ success: true, messageId: parsed.id || 'resend-msg' });
+        } else {
+          reject(new Error(`Resend API error ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
 
 async function resolveExplicitIpv4(hostname) {
   // If host is already an IP address, return it
@@ -26,6 +110,17 @@ async function resolveExplicitIpv4(hostname) {
 }
 
 async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions) {
+  // 1. Check if HTTPS API keys are provided (Bypasses all cloud SMTP port blocks!)
+  if (process.env.BREVO_API_KEY) {
+    console.log(`[EMAIL SERVICE] Dispatching via Brevo HTTPS API (Port 443)...`);
+    return await sendViaBrevoApi(process.env.BREVO_API_KEY, smtpUser, mailOptions.to, mailOptions.subject, mailOptions.html);
+  }
+
+  if (process.env.RESEND_API_KEY) {
+    console.log(`[EMAIL SERVICE] Dispatching via Resend HTTPS API (Port 443)...`);
+    return await sendViaResendApi(process.env.RESEND_API_KEY, mailOptions.to, mailOptions.subject, mailOptions.html);
+  }
+
   // Pre-resolve host to an explicit IPv4 IP address string so Linux glibc/Node never attempts IPv6
   const targetHost = await resolveExplicitIpv4(smtpHost);
 
@@ -106,7 +201,7 @@ module.exports = {
       };
 
       const info = await dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions);
-      console.log(`[EMAIL SERVICE] SMTP dispatch complete to ${recipientEmail}. Msg ID: ${info.messageId}`);
+      console.log(`[EMAIL SERVICE] SMTP dispatch complete to ${recipientEmail}. Msg ID: ${info.messageId || 'api-ok'}`);
       return {
         success: true,
         message: 'Password reset email dispatched successfully via SMTP.'
@@ -158,7 +253,7 @@ module.exports = {
       };
 
       const info = await dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions);
-      console.log(`[EMAIL SERVICE] OTP SMTP dispatch complete to ${recipientEmail}. Msg ID: ${info.messageId}`);
+      console.log(`[EMAIL SERVICE] OTP SMTP dispatch complete to ${recipientEmail}. Msg ID: ${info.messageId || 'api-ok'}`);
       return {
         success: true,
         message: `OTP verification email dispatched successfully to ${recipientEmail}.`
@@ -173,7 +268,3 @@ module.exports = {
     }
   }
 };
-
-
-
-
