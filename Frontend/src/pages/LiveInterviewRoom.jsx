@@ -2,7 +2,7 @@
 ------------------------------------------------
 File: LiveInterviewRoom.jsx
 Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room.
-Responsibilities: Manages WebRTC peer connection with STUN & TURN relay fallbacks, dual video feeds, audio stream, and live teacher scoring panel.
+Responsibilities: Manages WebRTC peer connection with STUN & TURN relay fallbacks, ICE candidate queuing, dual video feeds, audio stream, and live teacher scoring panel.
 Dependencies: react, react-router-dom, axiosClient, lucide-react
 ------------------------------------------------
 */
@@ -46,8 +46,8 @@ const LiveInterviewRoom = () => {
   const remoteVideoRef = useRef(null);
   const pcRef = useRef(null);
   const pollIntervalRef = useRef(null);
-  const offerIntervalRef = useRef(null);
   const timerRef = useRef(null);
+  const iceCandidatesQueueRef = useRef([]);
 
   // Fetch session details & user profile
   useEffect(() => {
@@ -100,6 +100,42 @@ const LiveInterviewRoom = () => {
       remoteVideoRef.current.play().catch(e => console.log('Remote video play check:', e));
     }
   }, [remoteStream]);
+
+  // Manual Trigger to Send WebRTC SDP Offer (Used by Faculty or via Re-connect Button)
+  const initiateOffer = async () => {
+    if (!pcRef.current || !peerId) return;
+    try {
+      console.log('Initiating WebRTC SDP offer...');
+      const offer = await pcRef.current.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      await pcRef.current.setLocalDescription(offer);
+      await axiosClient.post('/live-interview/signal/send', {
+        sessionId,
+        receiverId: peerId,
+        signalType: 'offer',
+        payload: offer
+      });
+    } catch (e) {
+      console.error('Initiate offer error:', e);
+    }
+  };
+
+  // Process any queued ICE candidates after remote description is attached
+  const flushIceCandidates = async () => {
+    if (pcRef.current && pcRef.current.remoteDescription && iceCandidatesQueueRef.current.length > 0) {
+      console.log(`Flushing ${iceCandidatesQueueRef.current.length} queued ICE candidates...`);
+      while (iceCandidatesQueueRef.current.length > 0) {
+        const cand = iceCandidatesQueueRef.current.shift();
+        try {
+          await pcRef.current.addIceCandidate(cand);
+        } catch (e) {
+          console.error('Buffered ICE candidate add error:', e);
+        }
+      }
+    }
+  };
 
   // Start Media Stream & WebRTC Engine
   useEffect(() => {
@@ -185,36 +221,21 @@ const LiveInterviewRoom = () => {
           }
         };
 
-        // Function to create and post SDP offer
-        const sendOffer = async () => {
-          if (!pcRef.current || pcRef.current.connectionState === 'connected') return;
-          try {
-            const offer = await pcRef.current.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: true
-            });
-            await pcRef.current.setLocalDescription(offer);
-            await axiosClient.post('/live-interview/signal/send', {
-              sessionId,
-              receiverId: peerId,
-              signalType: 'offer',
-              payload: offer
-            });
-          } catch (e) {
-            console.error('Send offer error:', e);
-          }
-        };
+        // Send a "join-room" signal so peer knows we are online
+        axiosClient.post('/live-interview/signal/send', {
+          sessionId,
+          receiverId: peerId,
+          signalType: 'join-room',
+          payload: { joinedAt: new Date() }
+        }).catch(console.error);
 
-        // Determine if this user is the initiator (Faculty / Admin or room owner)
+        // Determine if this user is the initiator (Faculty / Admin)
         const isInitiator = userRole === 'FACULTY' || userRole === 'ADMIN' || currentUserId === session?.faculty_id;
-
         if (isInitiator) {
-          await sendOffer();
-          offerIntervalRef.current = setInterval(() => {
-            if (pcRef.current && pcRef.current.connectionState !== 'connected') {
-              sendOffer();
-            }
-          }, 3000);
+          // Send initial offer
+          setTimeout(() => {
+            initiateOffer();
+          }, 1000);
         }
 
         // Signaling Poller (Polls every 1.5 seconds)
@@ -223,29 +244,40 @@ const LiveInterviewRoom = () => {
             const sigRes = await axiosClient.get(`/live-interview/signal/poll/${sessionId}`);
             if (sigRes.data.success && sigRes.data.signals && sigRes.data.signals.length > 0) {
               for (const sig of sigRes.data.signals) {
-                if (sig.signal_type === 'offer') {
-                  // Ready to accept offer when signalingState is stable
-                  if (pc.signalingState === 'stable' || pc.signalingState === 'have-local-offer') {
-                    await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    await axiosClient.post('/live-interview/signal/send', {
-                      sessionId,
-                      receiverId: peerId,
-                      signalType: 'answer',
-                      payload: answer
-                    });
+                if (sig.signal_type === 'join-room') {
+                  console.log('Peer joined room signal received');
+                  if (isInitiator && (!pc.remoteDescription || pc.connectionState !== 'connected')) {
+                    initiateOffer();
                   }
+                } else if (sig.signal_type === 'offer') {
+                  console.log('Incoming SDP offer received');
+                  await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+                  await flushIceCandidates();
+                  const answer = await pc.createAnswer();
+                  await pc.setLocalDescription(answer);
+                  await axiosClient.post('/live-interview/signal/send', {
+                    sessionId,
+                    receiverId: peerId,
+                    signalType: 'answer',
+                    payload: answer
+                  });
                 } else if (sig.signal_type === 'answer') {
+                  console.log('Incoming SDP answer received');
                   if (pc.signalingState === 'have-local-offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+                    await flushIceCandidates();
                     setConnected(true);
                   }
                 } else if (sig.signal_type === 'ice-candidate') {
-                  try {
-                    await pc.addIceCandidate(new RTCIceCandidate(sig.payload));
-                  } catch (iceErr) {
-                    console.error('ICE candidate add error:', iceErr);
+                  const candidate = new RTCIceCandidate(sig.payload);
+                  if (pc.remoteDescription) {
+                    try {
+                      await pc.addIceCandidate(candidate);
+                    } catch (iceErr) {
+                      console.error('ICE candidate add error:', iceErr);
+                    }
+                  } else {
+                    iceCandidatesQueueRef.current.push(candidate);
                   }
                 }
               }
@@ -271,7 +303,6 @@ const LiveInterviewRoom = () => {
     return () => {
       isMounted = false;
       clearInterval(pollIntervalRef.current);
-      clearInterval(offerIntervalRef.current);
       clearInterval(timerRef.current);
       if (pcRef.current) {
         pcRef.current.close();
@@ -366,6 +397,15 @@ const LiveInterviewRoom = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <button
+            onClick={initiateOffer}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+            title="Manually trigger WebRTC camera re-handshake"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Re-connect Live Video</span>
+          </button>
+
           <div className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black text-slate-700 dark:text-slate-300 flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-rose-500" />
             <span>Duration: {formatTimer(elapsedTime)}</span>
@@ -413,6 +453,13 @@ const LiveInterviewRoom = () => {
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-500" />
                   Establishing WebRTC peer connection handshake over STUN/TURN...
                 </p>
+                <button
+                  onClick={initiateOffer}
+                  className="mt-2 px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-black uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Click to Force Video Handshake Now
+                </button>
               </div>
             )}
 
