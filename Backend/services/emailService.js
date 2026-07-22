@@ -118,16 +118,27 @@ async function resolveExplicitIpv4(hostname) {
 
 async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions) {
   // 1. Check if Brevo or Resend HTTPS API keys are present (Bypasses all cloud SMTP port blocks!)
-  const brevoKey = process.env.BREVO_API_KEY || DEFAULT_BREVO_KEY;
-  if (brevoKey) {
+  const envBrevo = (process.env.BREVO_API_KEY || '').trim();
+  const brevoKey = (envBrevo.length > 10) ? envBrevo : DEFAULT_BREVO_KEY;
+  
+  if (brevoKey && brevoKey.length > 10) {
     console.log(`[EMAIL SERVICE] Dispatching via Brevo HTTPS API (Port 443)...`);
-    return await sendViaBrevoApi(brevoKey, smtpUser, mailOptions.to, mailOptions.subject, mailOptions.html);
+    try {
+      return await sendViaBrevoApi(brevoKey, smtpUser, mailOptions.to, mailOptions.subject, mailOptions.html);
+    } catch (brevoErr) {
+      console.warn(`[EMAIL SERVICE] Brevo HTTPS dispatch notice: ${brevoErr.message}`);
+    }
   }
 
-  if (process.env.RESEND_API_KEY) {
+  if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
     console.log(`[EMAIL SERVICE] Dispatching via Resend HTTPS API (Port 443)...`);
-    return await sendViaResendApi(process.env.RESEND_API_KEY, mailOptions.to, mailOptions.subject, mailOptions.html);
+    try {
+      return await sendViaResendApi(process.env.RESEND_API_KEY.trim(), mailOptions.to, mailOptions.subject, mailOptions.html);
+    } catch (resendErr) {
+      console.warn(`[EMAIL SERVICE] Resend HTTPS dispatch notice: ${resendErr.message}`);
+    }
   }
+
 
   // Pre-resolve host to an explicit IPv4 IP address string so Linux glibc/Node never attempts IPv6
   const targetHost = await resolveExplicitIpv4(smtpHost);
