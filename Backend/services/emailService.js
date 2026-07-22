@@ -1,6 +1,9 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
+const DEFAULT_SMTP_USER = 'karthikthalipineni@gmail.com';
+const DEFAULT_SMTP_PASS = 'rnos dmdx wgnm nsby';
+
 module.exports = {
   /*
   Sends password recovery tokens.
@@ -12,8 +15,8 @@ module.exports = {
     
     const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
     const smtpPort = process.env.SMTP_PORT || 587;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    const smtpUser = process.env.SMTP_USER || DEFAULT_SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS || DEFAULT_SMTP_PASS;
 
     const resetUrl = `http://localhost:3000/reset-password?token=${recoveryToken}`;
 
@@ -43,7 +46,7 @@ module.exports = {
         socketTimeout: 8000
       });
 
-      const senderHeader = smtpUser ? `"SkillForge Team" <${smtpUser}>` : '"SkillForge Team" <noreply@skillforge.edu>';
+      const senderHeader = `"SkillForge Security" <${smtpUser}>`;
 
       const mailOptions = {
         from: senderHeader,
@@ -89,8 +92,8 @@ module.exports = {
     
     const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
     const smtpPort = process.env.SMTP_PORT || 587;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    const smtpUser = process.env.SMTP_USER || DEFAULT_SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS || DEFAULT_SMTP_PASS;
 
     if (!smtpUser || !smtpPass) {
       console.log(`[EMAIL SERVICE] Missing SMTP credentials. Fallback to console logs.`);
@@ -117,7 +120,7 @@ module.exports = {
         socketTimeout: 8000
       });
 
-      const senderHeader = smtpUser ? `"SkillForge Security" <${smtpUser}>` : '"SkillForge Security" <security@skillforge.edu>';
+      const senderHeader = `"SkillForge Security" <${smtpUser}>`;
 
       const mailOptions = {
         from: senderHeader,
@@ -136,10 +139,10 @@ module.exports = {
       };
 
       const info = await transporter.sendMail(mailOptions);
-      console.log(`[EMAIL SERVICE] OTP SMTP dispatch complete. Msg ID: ${info.messageId}`);
+      console.log(`[EMAIL SERVICE] OTP SMTP dispatch complete to ${recipientEmail}. Msg ID: ${info.messageId}`);
       return {
         success: true,
-        message: 'OTP verification email dispatched successfully.'
+        message: `OTP verification email dispatched successfully to ${recipientEmail}.`
       };
     } catch (err) {
       console.error(`[EMAIL SERVICE] Nodemailer OTP dispatch failed: ${err.message}`);
@@ -151,5 +154,6 @@ module.exports = {
     }
   }
 };
+
 
 
