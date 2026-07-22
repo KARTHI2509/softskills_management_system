@@ -8,11 +8,12 @@ Dependencies: express, authMiddleware, liveInterviewController
 
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware');
 const liveInterviewController = require('../controllers/liveInterviewController');
 
 // All routes require authentication
-router.use(auth.verifyToken);
+router.use(protect);
+
 
 // Schedule & Sessions
 router.post('/schedule', liveInterviewController.scheduleSession);
