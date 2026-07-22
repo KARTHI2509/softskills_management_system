@@ -1,5 +1,11 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+
+// Enforce IPv4 DNS resolution for cloud providers like Render that do not support outbound IPv6
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 const DEFAULT_SMTP_USER = 'karthikthalipineni@gmail.com';
 const DEFAULT_SMTP_PASS = 'rnosdmdxwgnmnsby';
@@ -10,6 +16,7 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     host: smtpHost,
     port: port,
     secure: port === 465,
+    family: 4,
     auth: { user: smtpUser, pass: smtpPass },
     tls: { rejectUnauthorized: false },
     connectionTimeout: 5000,
@@ -22,11 +29,12 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     return await transporter.sendMail(mailOptions);
   } catch (err) {
     if (port !== 465) {
-      console.warn(`[EMAIL SERVICE] Primary transport (port ${port}) failed: ${err.message}. Retrying via Port 465 SSL...`);
+      console.warn(`[EMAIL SERVICE] Primary transport (port ${port}) failed: ${err.message}. Retrying via Port 465 SSL IPv4...`);
       const sslOptions = {
         host: smtpHost,
         port: 465,
         secure: true,
+        family: 4,
         auth: { user: smtpUser, pass: smtpPass },
         tls: { rejectUnauthorized: false },
         connectionTimeout: 5000,
@@ -39,6 +47,7 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     throw err;
   }
 }
+
 
 module.exports = {
   /*
