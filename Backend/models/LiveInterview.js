@@ -124,29 +124,30 @@ class LiveInterview {
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
-    const result = await db.query(query, [sessionId, senderId, receiverId, signalType, payload]);
+    const result = await db.query(query, [sessionId, senderId, receiverId || senderId, signalType, payload]);
     return result.rows[0];
   }
 
-  static async fetchAndClearSignals({ sessionId, receiverId }) {
+  static async fetchAndClearSignals({ sessionId, userId }) {
     const selectQuery = `
       SELECT * FROM webrtc_signals
-      WHERE session_id = $1 AND receiver_id = $2
+      WHERE session_id = $1 AND sender_id != $2
       ORDER BY created_at ASC
     `;
-    const result = await db.query(selectQuery, [sessionId, receiverId]);
+    const result = await db.query(selectQuery, [sessionId, userId]);
     const signals = result.rows;
 
     if (signals.length > 0) {
       const deleteQuery = `
         DELETE FROM webrtc_signals
-        WHERE session_id = $1 AND receiver_id = $2
+        WHERE session_id = $1 AND sender_id != $2
       `;
-      await db.query(deleteQuery, [sessionId, receiverId]);
+      await db.query(deleteQuery, [sessionId, userId]);
     }
 
     return signals;
   }
+
 }
 
 module.exports = LiveInterview;

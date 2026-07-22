@@ -2,7 +2,7 @@
 ------------------------------------------------
 File: LiveInterviewRoom.jsx
 Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room.
-Responsibilities: Manages WebRTC peer connection, dual video feeds, audio stream, and live teacher scoring panel.
+Responsibilities: Manages WebRTC peer connection with STUN & TURN relay fallbacks, dual video feeds, audio stream, and live teacher scoring panel.
 Dependencies: react, react-router-dom, axiosClient, lucide-react
 ------------------------------------------------
 */
@@ -118,13 +118,28 @@ const LiveInterviewRoom = () => {
 
         setLocalStream(stream);
 
-        // Initialize PeerConnection with robust public STUN servers
+        // Initialize PeerConnection with robust STUN & TURN Relay servers
         const pc = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' }
+            { urls: 'stun:stun3.l.google.com:19302' },
+            {
+              urls: 'turn:openrelay.metered.ca:80',
+              username: 'openrelayproject',
+              credential: 'openrelayproject'
+            },
+            {
+              urls: 'turn:openrelay.metered.ca:443',
+              username: 'openrelayproject',
+              credential: 'openrelayproject'
+            },
+            {
+              urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+              username: 'openrelayproject',
+              credential: 'openrelayproject'
+            }
           ]
         });
         pcRef.current = pc;
@@ -134,19 +149,27 @@ const LiveInterviewRoom = () => {
 
         // Listen for remote tracks
         pc.ontrack = (event) => {
+          console.log('Remote WebRTC track received:', event.streams);
           if (event.streams && event.streams[0]) {
             setRemoteStream(event.streams[0]);
             setConnected(true);
           }
         };
 
-        // Handle connection state changes
+        // Handle connection & ICE state changes
         pc.onconnectionstatechange = () => {
           console.log('WebRTC Connection State:', pc.connectionState);
           if (pc.connectionState === 'connected') {
             setConnected(true);
           } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
             setConnected(false);
+          }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+          console.log('WebRTC ICE State:', pc.iceConnectionState);
+          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+            setConnected(true);
           }
         };
 
@@ -385,7 +408,7 @@ const LiveInterviewRoom = () => {
                 </p>
                 <p className="text-xs text-slate-500 font-semibold flex items-center justify-center gap-1.5">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-500" />
-                  Establishing WebRTC peer connection handshake over STUN...
+                  Establishing WebRTC peer connection handshake over STUN/TURN...
                 </p>
               </div>
             )}

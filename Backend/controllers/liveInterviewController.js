@@ -193,11 +193,11 @@ module.exports = {
   pollSignals: async (req, res, next) => {
     try {
       const { sessionId } = req.params;
-      const receiverId = req.user.user_id;
+      const userId = req.user.user_id;
 
       const signals = await LiveInterview.fetchAndClearSignals({
         sessionId,
-        receiverId
+        userId
       });
 
       return res.status(200).json({
@@ -208,4 +208,5 @@ module.exports = {
       return next(error);
     }
   }
+
 };
