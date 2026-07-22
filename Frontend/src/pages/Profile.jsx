@@ -169,6 +169,7 @@ const Profile = () => {
     try {
       const res = await axiosClient.put('/auth/profile', {
         name,
+        email,
         department,
         phone,
         roll_no: profile?.roll_no || '23601A5327',
@@ -181,11 +182,12 @@ const Profile = () => {
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to save profile changes.');
+      alert(err.response?.data?.message || 'Failed to save profile changes.');
     } finally {
       setUpdating(false);
     }
   };
+
 
   const handleSaveMentor = async (e) => {
     e.preventDefault();

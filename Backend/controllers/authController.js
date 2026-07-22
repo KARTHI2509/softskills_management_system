@@ -165,10 +165,18 @@ module.exports = {
   */
   updateProfile: async (req, res, next) => {
     try {
-      const { name, department, phone, roll_no, year, cgpa } = req.body;
+      const { name, email, department, phone, roll_no, year, cgpa } = req.body;
       
-      // Update core user row (including phone!)
-      await User.updateProfile(req.user.user_id, name, department, phone);
+      // If email is being changed, verify uniqueness
+      if (email) {
+        const existingUser = await User.findByEmail(email);
+        if (existingUser && existingUser.user_id !== req.user.user_id) {
+          return res.status(400).json({ success: false, message: 'Email address is already in use by another account.' });
+        }
+      }
+
+      // Update core user row (including email and phone!)
+      await User.updateProfile(req.user.user_id, name, email, department, phone);
       
       // If student, also update student-specific row
       if (req.user.role === 'STUDENT') {
@@ -181,6 +189,7 @@ module.exports = {
       return next(error);
     }
   },
+
 
   /*
   PUT /api/auth/change-password

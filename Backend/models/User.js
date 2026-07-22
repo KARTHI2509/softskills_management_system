@@ -52,18 +52,22 @@ module.exports = {
   },
 
   /*
-  Updates user name, department and phone in the database.
-  Params: userId (UUID), name, department, phone.
+  Updates user name, email, department and phone in the database.
+  Params: userId (UUID), name, email, department, phone.
   Returns: Updated user row.
   */
-  updateProfile: async (userId, name, department, phone) => {
+  updateProfile: async (userId, name, email, department, phone) => {
     const res = await db.query(
       `UPDATE users 
-       SET name = $1, department = $2, phone = COALESCE($3, phone) 
-       WHERE user_id = $4 
+       SET name = $1, 
+           email = COALESCE($2, email),
+           department = $3, 
+           phone = COALESCE($4, phone) 
+       WHERE user_id = $5 
        RETURNING user_id, name, email, phone, role, department`,
-      [name, department, phone, userId]
+      [name, email, department, phone, userId]
     );
     return res.rows[0];
   }
 };
+
