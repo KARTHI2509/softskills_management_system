@@ -7,6 +7,10 @@ if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
+const customIpv4Lookup = (hostname, options, callback) => {
+  return dns.lookup(hostname, { family: 4 }, callback);
+};
+
 const DEFAULT_SMTP_USER = 'karthikthalipineni@gmail.com';
 const DEFAULT_SMTP_PASS = 'rnosdmdxwgnmnsby';
 
@@ -17,8 +21,9 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     port: port,
     secure: port === 465,
     family: 4,
+    lookup: customIpv4Lookup,
     auth: { user: smtpUser, pass: smtpPass },
-    tls: { rejectUnauthorized: false },
+    tls: { rejectUnauthorized: false, servername: smtpHost },
     connectionTimeout: 5000,
     greetingTimeout: 5000,
     socketTimeout: 8000
@@ -35,8 +40,9 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
         port: 465,
         secure: true,
         family: 4,
+        lookup: customIpv4Lookup,
         auth: { user: smtpUser, pass: smtpPass },
-        tls: { rejectUnauthorized: false },
+        tls: { rejectUnauthorized: false, servername: smtpHost },
         connectionTimeout: 5000,
         greetingTimeout: 5000,
         socketTimeout: 8000
@@ -47,6 +53,7 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     throw err;
   }
 }
+
 
 
 module.exports = {
