@@ -11,6 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import studentService from '../services/studentService';
+import { useAuth } from '../hooks/useAuth';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import { 
@@ -32,12 +33,14 @@ import {
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { fetchProfile: refreshAuthProfile } = useAuth();
   const [profile, setProfile] = useState(null);
   
   // Form fields state
   const [name, setName] = useState('');
   const [department, setDepartment] = useState('CSE');
   const [email, setEmail] = useState('');
+
   const [phone, setPhone] = useState('');
   
   const [loading, setLoading] = useState(true);
@@ -177,7 +180,13 @@ const Profile = () => {
         cgpa: profile?.cgpa || 8.25
       });
       if (res.data.success) {
-        setProfile(res.data.user);
+        const updated = res.data.user;
+        setProfile(updated);
+        setName(updated.name || '');
+        setEmail(updated.email || '');
+        setDepartment(updated.department || 'CSE');
+        setPhone(updated.phone || '');
+        if (refreshAuthProfile) refreshAuthProfile();
         alert('Profile details updated successfully!');
       }
     } catch (err) {
@@ -187,6 +196,7 @@ const Profile = () => {
       setUpdating(false);
     }
   };
+
 
 
   const handleSaveMentor = async (e) => {
