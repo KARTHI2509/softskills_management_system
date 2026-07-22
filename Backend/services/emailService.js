@@ -7,21 +7,33 @@ if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-const customIpv4Lookup = (hostname, options, callback) => {
-  return dns.lookup(hostname, { family: 4 }, callback);
-};
-
 const DEFAULT_SMTP_USER = 'karthikthalipineni@gmail.com';
 const DEFAULT_SMTP_PASS = 'rnosdmdxwgnmnsby';
 
+async function resolveExplicitIpv4(hostname) {
+  // If host is already an IP address, return it
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return hostname;
+  try {
+    const addresses = await dns.promises.resolve4(hostname);
+    if (addresses && addresses.length > 0) {
+      console.log(`[EMAIL SERVICE] Resolved ${hostname} to explicit IPv4 IP: ${addresses[0]}`);
+      return addresses[0];
+    }
+  } catch (err) {
+    console.warn(`[EMAIL SERVICE] IPv4 pre-resolution notice: ${err.message}`);
+  }
+  return hostname;
+}
+
 async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions) {
   const port = parseInt(smtpPort);
+  // Pre-resolve host to an explicit IPv4 IP address string so Linux glibc/Node never attempts IPv6
+  const targetHost = await resolveExplicitIpv4(smtpHost);
+
   const primaryOptions = {
-    host: smtpHost,
+    host: targetHost,
     port: port,
     secure: port === 465,
-    family: 4,
-    lookup: customIpv4Lookup,
     auth: { user: smtpUser, pass: smtpPass },
     tls: { rejectUnauthorized: false, servername: smtpHost },
     connectionTimeout: 5000,
@@ -36,11 +48,9 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     if (port !== 465) {
       console.warn(`[EMAIL SERVICE] Primary transport (port ${port}) failed: ${err.message}. Retrying via Port 465 SSL IPv4...`);
       const sslOptions = {
-        host: smtpHost,
+        host: targetHost,
         port: 465,
         secure: true,
-        family: 4,
-        lookup: customIpv4Lookup,
         auth: { user: smtpUser, pass: smtpPass },
         tls: { rejectUnauthorized: false, servername: smtpHost },
         connectionTimeout: 5000,
@@ -53,6 +63,7 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     throw err;
   }
 }
+
 
 
 
