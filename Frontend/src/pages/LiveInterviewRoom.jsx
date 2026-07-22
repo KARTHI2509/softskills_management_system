@@ -1,8 +1,8 @@
 /*
 ------------------------------------------------
 File: LiveInterviewRoom.jsx
-Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room.
-Responsibilities: Manages WebRTC peer connection with STUN & TURN relay fallbacks, ICE candidate queuing, dual video feeds, audio stream, and live teacher scoring panel.
+Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room with Pre-Call Camera/Mic Permission Gate.
+Responsibilities: Prompts browser camera/mic permissions via interactive button, previews local camera, manages WebRTC peer connection, dual video feeds, and live teacher scoring panel.
 Dependencies: react, react-router-dom, axiosClient, lucide-react
 ------------------------------------------------
 */
@@ -12,7 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { 
   Video, VideoOff, Mic, MicOff, PhoneOff, Award, CheckCircle, 
-  User, Clock, MessageSquare, AlertCircle, Sparkles, Sliders, RefreshCw 
+  User, Clock, MessageSquare, AlertCircle, Sparkles, Sliders, RefreshCw, ShieldCheck, Lock 
 } from 'lucide-react';
 
 const LiveInterviewRoom = () => {
@@ -23,6 +23,12 @@ const LiveInterviewRoom = () => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [userRole, setUserRole] = useState('STUDENT');
   const [peerId, setPeerId] = useState(null);
+
+  // Permission & Pre-call States
+  const [hasPermission, setHasPermission] = useState(false);
+  const [permissionRequested, setPermissionRequested] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [inRoom, setInRoom] = useState(false);
 
   // WebRTC & Media States
   const [localStream, setLocalStream] = useState(null);
@@ -43,6 +49,7 @@ const LiveInterviewRoom = () => {
 
   // Refs for WebRTC & Polling
   const localVideoRef = useRef(null);
+  const previewVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const pcRef = useRef(null);
   const pollIntervalRef = useRef(null);
@@ -84,43 +91,86 @@ const LiveInterviewRoom = () => {
     initRoom();
   }, [sessionId]);
 
-  // Callback Ref for Local Video element
+  // Request Camera & Mic Permission Explicitly
+  const requestMediaPermission = async () => {
+    setPermissionRequested(true);
+    setPermissionDenied(false);
+    setErrorMsg(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+      setLocalStream(stream);
+      setHasPermission(true);
+      setPermissionDenied(false);
+
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = stream;
+        previewVideoRef.current.muted = true;
+        previewVideoRef.current.play().catch(console.error);
+      }
+    } catch (err) {
+      console.error('Camera/Mic permission error:', err);
+      setPermissionDenied(true);
+      setErrorMsg('Browser camera/microphone permission was denied or blocked.');
+    }
+  };
+
+  // Callback Ref for Preview Video Element
+  const setPreviewVideoRef = (node) => {
+    previewVideoRef.current = node;
+    if (node && localStream) {
+      node.srcObject = localStream;
+      node.muted = true;
+      node.play().catch(e => console.log('Preview video play:', e));
+    }
+  };
+
+  // Callback Ref for Local Video Element
   const setLocalVideoRef = (node) => {
     localVideoRef.current = node;
     if (node && localStream) {
       node.srcObject = localStream;
       node.muted = true;
-      node.play().catch(e => console.log('Local video play check:', e));
+      node.play().catch(e => console.log('Local video play:', e));
     }
   };
 
-  // Callback Ref for Remote Video element
+  // Callback Ref for Remote Video Element
   const setRemoteVideoRef = (node) => {
     remoteVideoRef.current = node;
     if (node && remoteStream) {
       node.srcObject = remoteStream;
-      node.play().catch(e => console.log('Remote video play check:', e));
+      node.play().catch(e => console.log('Remote video play:', e));
     }
   };
 
-  // Bind localStream to video element whenever localStream updates
+  // Bind localStream to video elements whenever localStream changes
   useEffect(() => {
-    if (localStream && localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.muted = true;
-      localVideoRef.current.play().catch(e => console.log('Local video effect play:', e));
+    if (localStream) {
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = localStream;
+        previewVideoRef.current.muted = true;
+        previewVideoRef.current.play().catch(console.error);
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.muted = true;
+        localVideoRef.current.play().catch(console.error);
+      }
     }
   }, [localStream]);
 
-  // Bind remoteStream to video element whenever remoteStream updates
+  // Bind remoteStream to remote video element
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(e => console.log('Remote video effect play:', e));
+      remoteVideoRef.current.play().catch(console.error);
     }
   }, [remoteStream]);
 
-  // Manual Trigger to Send WebRTC SDP Offer (Used by Faculty or via Re-connect Button)
+  // Manual Trigger to Send WebRTC SDP Offer
   const initiateOffer = async () => {
     if (!pcRef.current || !peerId) return;
     try {
@@ -141,10 +191,9 @@ const LiveInterviewRoom = () => {
     }
   };
 
-  // Process any queued ICE candidates after remote description is attached
+  // Flush queued ICE candidates
   const flushIceCandidates = async () => {
     if (pcRef.current && pcRef.current.remoteDescription && iceCandidatesQueueRef.current.length > 0) {
-      console.log(`Flushing ${iceCandidatesQueueRef.current.length} queued ICE candidates...`);
       while (iceCandidatesQueueRef.current.length > 0) {
         const cand = iceCandidatesQueueRef.current.shift();
         try {
@@ -156,31 +205,23 @@ const LiveInterviewRoom = () => {
     }
   };
 
-  // Start Media Stream & WebRTC Engine
+  // Enter Room and Initialize WebRTC PeerConnection
+  const handleEnterRoom = () => {
+    if (!localStream) {
+      requestMediaPermission();
+      return;
+    }
+    setInRoom(true);
+  };
+
+  // WebRTC Setup Effect when inRoom is true
   useEffect(() => {
-    if (!currentUserId || !peerId) return;
+    if (!inRoom || !currentUserId || !peerId || !localStream) return;
 
     let isMounted = true;
 
-    const setupMediaAndWebRTC = async () => {
+    const setupWebRTC = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-
-        if (!isMounted) return;
-
-        setLocalStream(stream);
-
-        // Bind directly to video element ref if available
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-          localVideoRef.current.muted = true;
-          localVideoRef.current.play().catch(console.error);
-        }
-
-        // Initialize PeerConnection with STUN & TURN Relay servers
         const pc = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -206,10 +247,10 @@ const LiveInterviewRoom = () => {
         });
         pcRef.current = pc;
 
-        // Add local tracks to PeerConnection
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        // Add local tracks
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-        // Listen for remote tracks
+        // Remote tracks listener
         pc.ontrack = (event) => {
           console.log('Remote WebRTC track received:', event.streams);
           if (event.streams && event.streams[0]) {
@@ -222,24 +263,17 @@ const LiveInterviewRoom = () => {
           }
         };
 
-        // Handle connection & ICE state changes
+        // Connection state listeners
         pc.onconnectionstatechange = () => {
-          console.log('WebRTC Connection State:', pc.connectionState);
-          if (pc.connectionState === 'connected') {
-            setConnected(true);
-          } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-            setConnected(false);
-          }
+          if (pc.connectionState === 'connected') setConnected(true);
+          else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') setConnected(false);
         };
 
         pc.oniceconnectionstatechange = () => {
-          console.log('WebRTC ICE State:', pc.iceConnectionState);
-          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-            setConnected(true);
-          }
+          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') setConnected(true);
         };
 
-        // Handle ICE candidates
+        // ICE candidate handler
         pc.onicecandidate = (event) => {
           if (event.candidate) {
             axiosClient.post('/live-interview/signal/send', {
@@ -251,7 +285,7 @@ const LiveInterviewRoom = () => {
           }
         };
 
-        // Send a "join-room" signal so peer knows we are online
+        // Send "join-room" signal
         axiosClient.post('/live-interview/signal/send', {
           sessionId,
           receiverId: peerId,
@@ -259,28 +293,25 @@ const LiveInterviewRoom = () => {
           payload: { joinedAt: new Date() }
         }).catch(console.error);
 
-        // Determine if this user is the initiator (Faculty / Admin)
+        // Determine initiator
         const isInitiator = userRole === 'FACULTY' || userRole === 'ADMIN' || currentUserId === session?.faculty_id;
         if (isInitiator) {
-          // Send initial offer
           setTimeout(() => {
             initiateOffer();
           }, 1000);
         }
 
-        // Signaling Poller (Polls every 1.5 seconds)
+        // Signaling Poller
         pollIntervalRef.current = setInterval(async () => {
           try {
             const sigRes = await axiosClient.get(`/live-interview/signal/poll/${sessionId}`);
             if (sigRes.data.success && sigRes.data.signals && sigRes.data.signals.length > 0) {
               for (const sig of sigRes.data.signals) {
                 if (sig.signal_type === 'join-room') {
-                  console.log('Peer joined room signal received');
                   if (isInitiator && (!pc.remoteDescription || pc.connectionState !== 'connected')) {
                     initiateOffer();
                   }
                 } else if (sig.signal_type === 'offer') {
-                  console.log('Incoming SDP offer received');
                   await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
                   await flushIceCandidates();
                   const answer = await pc.createAnswer();
@@ -292,7 +323,6 @@ const LiveInterviewRoom = () => {
                     payload: answer
                   });
                 } else if (sig.signal_type === 'answer') {
-                  console.log('Incoming SDP answer received');
                   if (pc.signalingState === 'have-local-offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
                     await flushIceCandidates();
@@ -318,14 +348,12 @@ const LiveInterviewRoom = () => {
         }, 1500);
 
       } catch (err) {
-        console.error('WebRTC initialization error:', err);
-        setErrorMsg('Unable to access camera/microphone. Please allow browser permissions to enter the live interview room.');
+        console.error('WebRTC setup error:', err);
       }
     };
 
-    setupMediaAndWebRTC();
+    setupWebRTC();
 
-    // Timer counter
     timerRef.current = setInterval(() => {
       setElapsedTime(prev => prev + 1);
     }, 1000);
@@ -334,14 +362,9 @@ const LiveInterviewRoom = () => {
       isMounted = false;
       clearInterval(pollIntervalRef.current);
       clearInterval(timerRef.current);
-      if (pcRef.current) {
-        pcRef.current.close();
-      }
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
+      if (pcRef.current) pcRef.current.close();
     };
-  }, [currentUserId, peerId, userRole, session]);
+  }, [inRoom, currentUserId, peerId, userRole, session, localStream]);
 
   const toggleMuteAudio = () => {
     if (localStream) {
@@ -402,6 +425,145 @@ const LiveInterviewRoom = () => {
 
   const overallCalculated = Math.round((parseInt(commScore) + parseInt(techScore) + parseInt(confScore)) / 3);
 
+  // ------------------------------------------------
+  // PRE-JOIN PERMISSION GATE SCREEN (Google Meet Style)
+  // ------------------------------------------------
+  if (!inRoom) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8 py-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center justify-center gap-3">
+            <span>Live 1-on-1 Interview Pre-Join Room</span>
+            <span className="p-2 bg-rose-500/10 text-rose-500 rounded-2xl border border-rose-500/20">
+              <Video className="w-6 h-6" />
+            </span>
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {session?.title || 'Live Technical & Soft Skills Interview'} • {userRole === 'STUDENT' ? `Faculty: ${session?.faculty_name || 'Faculty Advisor'}` : `Candidate: ${session?.student_name || 'Student'}`}
+          </p>
+        </div>
+
+        {/* Pre-Call Permission & Preview Card */}
+        <div className="bg-white dark:bg-[#111625] border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl grid md:grid-cols-2 gap-8 items-center">
+          {/* Left Column: Camera Preview Box */}
+          <div className="space-y-4">
+            <div className="relative w-full h-64 bg-slate-950 rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-inner">
+              {hasPermission && localStream ? (
+                <video
+                  ref={setPreviewVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover transform -scale-x-100"
+                />
+              ) : (
+                <div className="text-center p-6 space-y-3">
+                  <div className="h-16 w-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto border border-rose-500/20">
+                    <VideoOff className="w-8 h-8" />
+                  </div>
+                  <p className="font-extrabold text-xs text-slate-300">Camera preview inactive</p>
+                  <p className="text-[11px] text-slate-500 font-semibold">Click "Allow Camera & Mic Permission" to test your camera.</p>
+                </div>
+              )}
+
+              {/* Status Badge */}
+              <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 text-white text-[10px] font-black px-3 py-1 rounded-xl shadow flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${hasPermission ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                <span>{hasPermission ? 'Camera Active' : 'Permission Required'}</span>
+              </div>
+            </div>
+
+            {hasPermission && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={toggleMuteAudio}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black border transition-all ${
+                    audioMuted ? 'bg-rose-500/10 text-rose-500 border-rose-500/30' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                  }`}
+                >
+                  {audioMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  <span>{audioMuted ? 'Mic Muted' : 'Mic Unmuted'}</span>
+                </button>
+
+                <button
+                  onClick={toggleMuteVideo}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black border transition-all ${
+                    videoMuted ? 'bg-rose-500/10 text-rose-500 border-rose-500/30' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                  }`}
+                >
+                  {videoMuted ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                  <span>{videoMuted ? 'Cam Off' : 'Cam On'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Permission Trigger Button & Join Controls */}
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-extrabold text-slate-850 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-6 h-6 text-rose-500" />
+                Browser Permission Setup
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Before entering the live video room, click the button below to allow camera & microphone access in your browser.
+              </p>
+            </div>
+
+            {permissionDenied && (
+              <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-xs space-y-2">
+                <p className="font-extrabold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4" />
+                  Camera & Microphone Permission Denied
+                </p>
+                <p className="text-[11px] text-slate-700 dark:text-slate-300 font-semibold leading-relaxed">
+                  How to fix: Click the <strong className="text-rose-500">Lock Icon 🔒</strong> next to the web URL in your browser address bar at the top, change **Camera** & **Microphone** to **ALLOW**, then click the button below again.
+                </p>
+              </div>
+            )}
+
+            {!hasPermission ? (
+              <button
+                onClick={requestMediaPermission}
+                className="w-full py-4 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-xl shadow-rose-500/25 flex items-center justify-center gap-2.5 transform hover:scale-105"
+              >
+                <Video className="w-5 h-5" />
+                <span>ALLOW CAMERA & MIC PERMISSION</span>
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl text-xs font-black flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-emerald-500" />
+                  <span>Camera & Microphone Ready! Your preview is active.</span>
+                </div>
+
+                <button
+                  onClick={handleEnterRoom}
+                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2.5 transform hover:scale-105"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  <span>ENTER LIVE INTERVIEW ROOM NOW</span>
+                </button>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-slate-150 dark:border-slate-800/60 flex justify-between items-center text-[11px] font-bold text-slate-400">
+              <span className="flex items-center gap-1">
+                <Lock className="w-3.5 h-3.5 text-emerald-500" />
+                Encrypted Peer Stream
+              </span>
+              <span>WebRTC STUN/TURN Active</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------
+  // MAIN LIVE INTERVIEW ROOM SCREEN
+  // ------------------------------------------------
   return (
     <div className="space-y-6">
       {/* Top Header Bar */}
