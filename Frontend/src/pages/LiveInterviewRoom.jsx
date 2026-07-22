@@ -36,6 +36,7 @@ const LiveInterviewRoom = () => {
   const [audioMuted, setAudioMuted] = useState(false);
   const [videoMuted, setVideoMuted] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [webrtcStatus, setWebrtcStatus] = useState('Initializing...');
   const [errorMsg, setErrorMsg] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
 
@@ -179,16 +180,36 @@ const LiveInterviewRoom = () => {
     }
   }, [remoteStream]);
 
-  // Manual Trigger to Send WebRTC SDP Offer
+  // Robust Trigger to Send or Re-send WebRTC SDP Offer
   const initiateOffer = async () => {
     if (!pcRef.current || !peerId) return;
     try {
-      console.log('Initiating WebRTC SDP offer...');
+      // If already in have-local-offer, re-broadcast existing local SDP offer
+      if (pcRef.current.signalingState === 'have-local-offer' && pcRef.current.localDescription) {
+        console.log('Re-broadcasting existing local SDP offer to peer...');
+        setWebrtcStatus('Re-broadcasting SDP offer to peer...');
+        await axiosClient.post('/live-interview/signal/send', {
+          sessionId,
+          receiverId: peerId,
+          signalType: 'offer',
+          payload: pcRef.current.localDescription
+        });
+        return;
+      }
+
+      if (pcRef.current.signalingState !== 'stable') {
+        console.log('Cannot create new offer in state:', pcRef.current.signalingState);
+        return;
+      }
+
+      console.log('Initiating fresh WebRTC SDP offer...');
+      setWebrtcStatus('Creating SDP Offer...');
       const offer = await pcRef.current.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
       await pcRef.current.setLocalDescription(offer);
+      setWebrtcStatus('SDP Offer Created, sending to signal server...');
       await axiosClient.post('/live-interview/signal/send', {
         sessionId,
         receiverId: peerId,
@@ -203,6 +224,7 @@ const LiveInterviewRoom = () => {
   // Flush queued ICE candidates
   const flushIceCandidates = async () => {
     if (pcRef.current && pcRef.current.remoteDescription && iceCandidatesQueueRef.current.length > 0) {
+      console.log(`Flushing ${iceCandidatesQueueRef.current.length} queued ICE candidates...`);
       while (iceCandidatesQueueRef.current.length > 0) {
         const cand = iceCandidatesQueueRef.current.shift();
         try {
@@ -231,6 +253,7 @@ const LiveInterviewRoom = () => {
 
     const setupWebRTC = async () => {
       try {
+        setWebrtcStatus('Connecting to WebRTC STUN/TURN Relays...');
         const pc = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -259,9 +282,10 @@ const LiveInterviewRoom = () => {
         // Add local tracks
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-        // Universal Remote tracks listener (Handles streams array or individual track attachment)
+        // Universal Remote tracks listener
         pc.ontrack = (event) => {
           console.log('Remote WebRTC track received:', event);
+          setWebrtcStatus('🟢 Remote Video/Audio Track Received!');
           setRemoteStream(prevStream => {
             let newStream = prevStream;
             if (!newStream) {
@@ -282,13 +306,17 @@ const LiveInterviewRoom = () => {
         // Connection state listeners
         pc.onconnectionstatechange = () => {
           console.log('WebRTC Connection State:', pc.connectionState);
+          setWebrtcStatus(`WebRTC State: ${pc.connectionState}`);
           if (pc.connectionState === 'connected') setConnected(true);
           else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') setConnected(false);
         };
 
         pc.oniceconnectionstatechange = () => {
           console.log('WebRTC ICE Connection State:', pc.iceConnectionState);
-          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') setConnected(true);
+          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+            setConnected(true);
+            setWebrtcStatus('🟢 Connected via TURN Relay!');
+          }
         };
 
         // ICE candidate handler
@@ -326,10 +354,13 @@ const LiveInterviewRoom = () => {
             if (sigRes.data.success && sigRes.data.signals && sigRes.data.signals.length > 0) {
               for (const sig of sigRes.data.signals) {
                 if (sig.signal_type === 'join-room') {
-                  if (isInitiator && (!pc.remoteDescription || pc.connectionState !== 'connected')) {
+                  console.log('Peer joined room signal received');
+                  if (isInitiator && pc.connectionState !== 'connected') {
                     initiateOffer();
                   }
                 } else if (sig.signal_type === 'offer') {
+                  console.log('SDP Offer received from peer');
+                  setWebrtcStatus('SDP Offer Received, sending Answer...');
                   await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
                   await flushIceCandidates();
                   const answer = await pc.createAnswer();
@@ -341,6 +372,8 @@ const LiveInterviewRoom = () => {
                     payload: answer
                   });
                 } else if (sig.signal_type === 'answer') {
+                  console.log('SDP Answer received from peer');
+                  setWebrtcStatus('SDP Answer Received! Completing ICE connection...');
                   if (pc.signalingState === 'have-local-offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
                     await flushIceCandidates();
@@ -659,9 +692,9 @@ const LiveInterviewRoom = () => {
                 <p className="font-extrabold text-sm text-slate-300">
                   Waiting for {userRole === 'STUDENT' ? 'Faculty Mentor' : 'Student Candidate'} to connect live...
                 </p>
-                <p className="text-xs text-slate-500 font-semibold flex items-center justify-center gap-1.5">
+                <p className="text-xs text-rose-400 font-bold flex items-center justify-center gap-1.5">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-500" />
-                  Establishing WebRTC peer connection handshake over STUN/TURN...
+                  Status: {webrtcStatus}
                 </p>
                 <button
                   onClick={initiateOffer}
