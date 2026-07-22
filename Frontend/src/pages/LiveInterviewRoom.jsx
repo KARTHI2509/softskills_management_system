@@ -1,8 +1,8 @@
 /*
 ------------------------------------------------
 File: LiveInterviewRoom.jsx
-Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room with Pre-Call Camera/Mic Permission Gate.
-Responsibilities: Prompts browser camera/mic permissions via interactive button, previews local camera, manages WebRTC peer connection, dual video feeds, and live teacher scoring panel.
+Purpose: Real-time 1-on-1 WebRTC Live Video & Audio Mock Interview Room with Pre-Call Camera/Mic Permission Gate & Full Re-connection Engine.
+Responsibilities: Prompts browser camera/mic permissions via interactive button, previews local camera, manages WebRTC peer connection with STUN/TURN relays, dual video feeds, and live teacher scoring panel.
 Dependencies: react, react-router-dom, axiosClient, lucide-react
 ------------------------------------------------
 */
@@ -180,47 +180,6 @@ const LiveInterviewRoom = () => {
     }
   }, [remoteStream]);
 
-  // Robust Trigger to Send or Re-send WebRTC SDP Offer
-  const initiateOffer = async () => {
-    if (!pcRef.current || !peerId) return;
-    try {
-      // If already in have-local-offer, re-broadcast existing local SDP offer
-      if (pcRef.current.signalingState === 'have-local-offer' && pcRef.current.localDescription) {
-        console.log('Re-broadcasting existing local SDP offer to peer...');
-        setWebrtcStatus('Re-broadcasting SDP offer to peer...');
-        await axiosClient.post('/live-interview/signal/send', {
-          sessionId,
-          receiverId: peerId,
-          signalType: 'offer',
-          payload: pcRef.current.localDescription
-        });
-        return;
-      }
-
-      if (pcRef.current.signalingState !== 'stable') {
-        console.log('Cannot create new offer in state:', pcRef.current.signalingState);
-        return;
-      }
-
-      console.log('Initiating fresh WebRTC SDP offer...');
-      setWebrtcStatus('Creating SDP Offer...');
-      const offer = await pcRef.current.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true
-      });
-      await pcRef.current.setLocalDescription(offer);
-      setWebrtcStatus('SDP Offer Created, sending to signal server...');
-      await axiosClient.post('/live-interview/signal/send', {
-        sessionId,
-        receiverId: peerId,
-        signalType: 'offer',
-        payload: offer
-      });
-    } catch (e) {
-      console.error('Initiate offer error:', e);
-    }
-  };
-
   // Flush queued ICE candidates
   const flushIceCandidates = async () => {
     if (pcRef.current && pcRef.current.remoteDescription && iceCandidatesQueueRef.current.length > 0) {
@@ -236,7 +195,135 @@ const LiveInterviewRoom = () => {
     }
   };
 
-  // Enter Room and Initialize WebRTC PeerConnection
+  // Create a Fresh RTCPeerConnection and Initiate Fresh SDP Offer
+  const setupPeerConnection = async () => {
+    if (!currentUserId || !peerId || !localStream) return;
+
+    if (pcRef.current) {
+      console.log('Closing existing RTCPeerConnection for clean re-handshake...');
+      pcRef.current.close();
+    }
+    iceCandidatesQueueRef.current = [];
+    setConnected(false);
+    setRemoteStream(null);
+    setWebrtcStatus('Connecting to WebRTC STUN/TURN Relays...');
+
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ]
+    });
+    pcRef.current = pc;
+
+    // Add local tracks
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+    // Universal Remote tracks listener
+    pc.ontrack = (event) => {
+      console.log('Remote WebRTC track received:', event);
+      setWebrtcStatus('🟢 Remote Video/Audio Track Received!');
+      setRemoteStream(prevStream => {
+        let newStream = prevStream;
+        if (!newStream) {
+          newStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream();
+        }
+        if (event.track) {
+          newStream.addTrack(event.track);
+        }
+        setConnected(true);
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = newStream;
+          remoteVideoRef.current.play().catch(console.error);
+        }
+        return newStream;
+      });
+    };
+
+    // Connection state listeners
+    pc.onconnectionstatechange = () => {
+      console.log('WebRTC Connection State:', pc.connectionState);
+      setWebrtcStatus(`WebRTC State: ${pc.connectionState}`);
+      if (pc.connectionState === 'connected') setConnected(true);
+      else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') setConnected(false);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log('WebRTC ICE Connection State:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setConnected(true);
+        setWebrtcStatus('🟢 Connected via TURN Relay!');
+      }
+    };
+
+    // ICE candidate handler
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        axiosClient.post('/live-interview/signal/send', {
+          sessionId,
+          receiverId: peerId,
+          signalType: 'ice-candidate',
+          payload: event.candidate
+        }).catch(console.error);
+      }
+    };
+
+    // Send "join-room" signal
+    axiosClient.post('/live-interview/signal/send', {
+      sessionId,
+      receiverId: peerId,
+      signalType: 'join-room',
+      payload: { joinedAt: new Date() }
+    }).catch(console.error);
+
+    // Determine initiator and create offer
+    const isInitiator = userRole === 'FACULTY' || userRole === 'ADMIN' || currentUserId === session?.faculty_id;
+    if (isInitiator) {
+      try {
+        console.log('Creating fresh SDP offer...');
+        setWebrtcStatus('Creating SDP Offer...');
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true
+        });
+        await pc.setLocalDescription(offer);
+        setWebrtcStatus('SDP Offer Sent, waiting for peer answer...');
+        await axiosClient.post('/live-interview/signal/send', {
+          sessionId,
+          receiverId: peerId,
+          signalType: 'offer',
+          payload: offer
+        });
+      } catch (err) {
+        console.error('Create offer error:', err);
+      }
+    }
+  };
+
+  // Re-connect button handler
+  const handleReconnect = () => {
+    setupPeerConnection();
+  };
+
+  // Enter Room
   const handleEnterRoom = () => {
     if (!localStream) {
       requestMediaPermission(true);
@@ -251,159 +338,62 @@ const LiveInterviewRoom = () => {
 
     let isMounted = true;
 
-    const setupWebRTC = async () => {
+    setupPeerConnection();
+
+    // Signaling Poller
+    pollIntervalRef.current = setInterval(async () => {
       try {
-        setWebrtcStatus('Connecting to WebRTC STUN/TURN Relays...');
-        const pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            {
-              urls: 'turn:openrelay.metered.ca:80',
-              username: 'openrelayproject',
-              credential: 'openrelayproject'
-            },
-            {
-              urls: 'turn:openrelay.metered.ca:443',
-              username: 'openrelayproject',
-              credential: 'openrelayproject'
-            },
-            {
-              urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-              username: 'openrelayproject',
-              credential: 'openrelayproject'
-            }
-          ]
-        });
-        pcRef.current = pc;
+        const sigRes = await axiosClient.get(`/live-interview/signal/poll/${sessionId}`);
+        if (sigRes.data.success && sigRes.data.signals && sigRes.data.signals.length > 0) {
+          for (const sig of sigRes.data.signals) {
+            const isInitiator = userRole === 'FACULTY' || userRole === 'ADMIN' || currentUserId === session?.faculty_id;
+            const pc = pcRef.current;
+            if (!pc) continue;
 
-        // Add local tracks
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-        // Universal Remote tracks listener
-        pc.ontrack = (event) => {
-          console.log('Remote WebRTC track received:', event);
-          setWebrtcStatus('🟢 Remote Video/Audio Track Received!');
-          setRemoteStream(prevStream => {
-            let newStream = prevStream;
-            if (!newStream) {
-              newStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream();
-            }
-            if (event.track) {
-              newStream.addTrack(event.track);
-            }
-            setConnected(true);
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = newStream;
-              remoteVideoRef.current.play().catch(console.error);
-            }
-            return newStream;
-          });
-        };
-
-        // Connection state listeners
-        pc.onconnectionstatechange = () => {
-          console.log('WebRTC Connection State:', pc.connectionState);
-          setWebrtcStatus(`WebRTC State: ${pc.connectionState}`);
-          if (pc.connectionState === 'connected') setConnected(true);
-          else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') setConnected(false);
-        };
-
-        pc.oniceconnectionstatechange = () => {
-          console.log('WebRTC ICE Connection State:', pc.iceConnectionState);
-          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-            setConnected(true);
-            setWebrtcStatus('🟢 Connected via TURN Relay!');
-          }
-        };
-
-        // ICE candidate handler
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            axiosClient.post('/live-interview/signal/send', {
-              sessionId,
-              receiverId: peerId,
-              signalType: 'ice-candidate',
-              payload: event.candidate
-            }).catch(console.error);
-          }
-        };
-
-        // Send "join-room" signal
-        axiosClient.post('/live-interview/signal/send', {
-          sessionId,
-          receiverId: peerId,
-          signalType: 'join-room',
-          payload: { joinedAt: new Date() }
-        }).catch(console.error);
-
-        // Determine initiator
-        const isInitiator = userRole === 'FACULTY' || userRole === 'ADMIN' || currentUserId === session?.faculty_id;
-        if (isInitiator) {
-          setTimeout(() => {
-            initiateOffer();
-          }, 1000);
-        }
-
-        // Signaling Poller
-        pollIntervalRef.current = setInterval(async () => {
-          try {
-            const sigRes = await axiosClient.get(`/live-interview/signal/poll/${sessionId}`);
-            if (sigRes.data.success && sigRes.data.signals && sigRes.data.signals.length > 0) {
-              for (const sig of sigRes.data.signals) {
-                if (sig.signal_type === 'join-room') {
-                  console.log('Peer joined room signal received');
-                  if (isInitiator && pc.connectionState !== 'connected') {
-                    initiateOffer();
-                  }
-                } else if (sig.signal_type === 'offer') {
-                  console.log('SDP Offer received from peer');
-                  setWebrtcStatus('SDP Offer Received, sending Answer...');
-                  await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-                  await flushIceCandidates();
-                  const answer = await pc.createAnswer();
-                  await pc.setLocalDescription(answer);
-                  await axiosClient.post('/live-interview/signal/send', {
-                    sessionId,
-                    receiverId: peerId,
-                    signalType: 'answer',
-                    payload: answer
-                  });
-                } else if (sig.signal_type === 'answer') {
-                  console.log('SDP Answer received from peer');
-                  setWebrtcStatus('SDP Answer Received! Completing ICE connection...');
-                  if (pc.signalingState === 'have-local-offer') {
-                    await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-                    await flushIceCandidates();
-                    setConnected(true);
-                  }
-                } else if (sig.signal_type === 'ice-candidate') {
-                  const candidate = new RTCIceCandidate(sig.payload);
-                  if (pc.remoteDescription) {
-                    try {
-                      await pc.addIceCandidate(candidate);
-                    } catch (iceErr) {
-                      console.error('ICE candidate add error:', iceErr);
-                    }
-                  } else {
-                    iceCandidatesQueueRef.current.push(candidate);
-                  }
+            if (sig.signal_type === 'join-room') {
+              console.log('Peer joined room signal received');
+              if (isInitiator && pc.connectionState !== 'connected') {
+                setupPeerConnection();
+              }
+            } else if (sig.signal_type === 'offer') {
+              console.log('SDP Offer received from peer');
+              setWebrtcStatus('SDP Offer Received, sending Answer...');
+              await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+              await flushIceCandidates();
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await axiosClient.post('/live-interview/signal/send', {
+                sessionId,
+                receiverId: peerId,
+                signalType: 'answer',
+                payload: answer
+              });
+            } else if (sig.signal_type === 'answer') {
+              console.log('SDP Answer received from peer');
+              setWebrtcStatus('SDP Answer Received! Completing ICE connection...');
+              if (pc.signalingState === 'have-local-offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+                await flushIceCandidates();
+                setConnected(true);
+              }
+            } else if (sig.signal_type === 'ice-candidate') {
+              const candidate = new RTCIceCandidate(sig.payload);
+              if (pc.remoteDescription) {
+                try {
+                  await pc.addIceCandidate(candidate);
+                } catch (iceErr) {
+                  console.error('ICE candidate add error:', iceErr);
                 }
+              } else {
+                iceCandidatesQueueRef.current.push(candidate);
               }
             }
-          } catch (pollErr) {
-            console.error('Signal poll error:', pollErr);
           }
-        }, 1500);
-
-      } catch (err) {
-        console.error('WebRTC setup error:', err);
+        }
+      } catch (pollErr) {
+        console.error('Signal poll error:', pollErr);
       }
-    };
-
-    setupWebRTC();
+    }, 1500);
 
     timerRef.current = setInterval(() => {
       setElapsedTime(prev => prev + 1);
@@ -641,9 +631,9 @@ const LiveInterviewRoom = () => {
 
         <div className="flex items-center gap-4">
           <button
-            onClick={initiateOffer}
+            onClick={handleReconnect}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-            title="Manually trigger WebRTC camera re-handshake"
+            title="Re-initialize WebRTC peer connection from scratch"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Re-connect Live Video</span>
@@ -697,11 +687,11 @@ const LiveInterviewRoom = () => {
                   Status: {webrtcStatus}
                 </p>
                 <button
-                  onClick={initiateOffer}
+                  onClick={handleReconnect}
                   className="mt-2 px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-black uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  Click to Force Video Handshake Now
+                  Click to Force Fresh Video Handshake Now
                 </button>
               </div>
             )}
