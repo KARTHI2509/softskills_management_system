@@ -94,7 +94,6 @@ class LiveInterview {
     return result.rows[0];
   }
 
-
   static async submitEvaluation(sessionId, { commScore, techScore, confScore, feedback }) {
     const comm = parseInt(commScore || 0);
     const tech = parseInt(techScore || 0);
@@ -138,16 +137,16 @@ class LiveInterview {
     const signals = result.rows;
 
     if (signals.length > 0) {
+      const signalIds = signals.map(s => s.signal_id);
       const deleteQuery = `
         DELETE FROM webrtc_signals
-        WHERE session_id = $1 AND sender_id != $2
+        WHERE signal_id = ANY($1::uuid[])
       `;
-      await db.query(deleteQuery, [sessionId, userId]);
+      await db.query(deleteQuery, [signalIds]);
     }
 
     return signals;
   }
-
 }
 
 module.exports = LiveInterview;

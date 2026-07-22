@@ -340,7 +340,7 @@ const LiveInterviewRoom = () => {
 
     setupPeerConnection();
 
-    // Signaling Poller
+    // Fast 750ms Signaling Poller
     pollIntervalRef.current = setInterval(async () => {
       try {
         const sigRes = await axiosClient.get(`/live-interview/signal/poll/${sessionId}`);
@@ -393,7 +393,7 @@ const LiveInterviewRoom = () => {
       } catch (pollErr) {
         console.error('Signal poll error:', pollErr);
       }
-    }, 1500);
+    }, 750);
 
     timerRef.current = setInterval(() => {
       setElapsedTime(prev => prev + 1);
