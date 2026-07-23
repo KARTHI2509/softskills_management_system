@@ -249,21 +249,28 @@ const LiveInterviewRoom = () => {
     pc.ontrack = (event) => {
       console.log('Remote WebRTC track received:', event);
       setWebrtcStatus('🟢 Remote Video/Audio Track Received!');
-      setRemoteStream(prevStream => {
-        let newStream = prevStream;
-        if (!newStream) {
-          newStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream();
-        }
-        if (event.track) {
-          newStream.addTrack(event.track);
-        }
-        setConnected(true);
+      setConnected(true);
+
+      if (event.streams && event.streams[0]) {
+        const stream = event.streams[0];
+        setRemoteStream(stream);
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = newStream;
-          remoteVideoRef.current.play().catch(console.error);
+          remoteVideoRef.current.srcObject = stream;
+          remoteVideoRef.current.play().catch(e => console.log('Remote video play:', e));
         }
-        return newStream;
-      });
+      } else {
+        setRemoteStream(prevStream => {
+          const newStream = prevStream ? new MediaStream(prevStream.getTracks()) : new MediaStream();
+          if (event.track) {
+            newStream.addTrack(event.track);
+          }
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = newStream;
+            remoteVideoRef.current.play().catch(e => console.log('Remote video play:', e));
+          }
+          return newStream;
+        });
+      }
     };
 
     // Connection state listeners
@@ -278,7 +285,7 @@ const LiveInterviewRoom = () => {
       console.log('WebRTC ICE Connection State:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         setConnected(true);
-        setWebrtcStatus('🟢 Connected via TURN Relay!');
+        setWebrtcStatus('🟢 Connected via Relay!');
       }
     };
 
@@ -368,29 +375,37 @@ const LiveInterviewRoom = () => {
 
             if (sig.signal_type === 'join-room' || sig.signal_type === 'request-offer') {
               console.log('Peer join-room/request-offer signal received');
-              if (isInitiator) {
+              if (isInitiator && pc.connectionState !== 'connected') {
                 setupPeerConnection();
               }
             } else if (sig.signal_type === 'offer') {
               console.log('SDP Offer received from peer');
               setWebrtcStatus('SDP Offer Received, sending Answer...');
-              await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-              await flushIceCandidates();
-              const answer = await pc.createAnswer();
-              await pc.setLocalDescription(answer);
-              await axiosClient.post('/live-interview/signal/send', {
-                sessionId,
-                receiverId: peerId,
-                signalType: 'answer',
-                payload: answer
-              });
+              try {
+                await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+                await flushIceCandidates();
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await axiosClient.post('/live-interview/signal/send', {
+                  sessionId,
+                  receiverId: peerId,
+                  signalType: 'answer',
+                  payload: answer
+                });
+              } catch (offerErr) {
+                console.error('Error processing SDP offer:', offerErr);
+              }
             } else if (sig.signal_type === 'answer') {
               console.log('SDP Answer received from peer');
               setWebrtcStatus('SDP Answer Received! Completing ICE connection...');
               if (pc.signalingState === 'have-local-offer') {
-                await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-                await flushIceCandidates();
-                setConnected(true);
+                try {
+                  await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+                  await flushIceCandidates();
+                  setConnected(true);
+                } catch (ansErr) {
+                  console.error('Error setting remote description for answer:', ansErr);
+                }
               }
             } else if (sig.signal_type === 'ice-candidate') {
               const candidate = new RTCIceCandidate(sig.payload);

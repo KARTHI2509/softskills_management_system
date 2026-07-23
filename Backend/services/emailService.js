@@ -117,12 +117,64 @@ async function resolveExplicitIpv4(hostname) {
 }
 
 async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mailOptions) {
-  // 1. Check if Brevo or Resend HTTPS API keys are present (Bypasses all cloud SMTP port blocks!)
+  const cleanPass = (smtpPass || '').replace(/\s+/g, '');
+
+  // 1. Try direct Nodemailer SMTP (Fastest for Gmail App Passwords - 1-2s delivery)
+  if (smtpUser && cleanPass) {
+    const targetHost = await resolveExplicitIpv4(smtpHost);
+    const useSSLFirst = smtpHost.includes('gmail') || parseInt(smtpPort) === 465;
+    const primaryPort = useSSLFirst ? 465 : parseInt(smtpPort || 587);
+    const isSecure = primaryPort === 465;
+
+    const primaryOptions = {
+      host: targetHost,
+      port: primaryPort,
+      secure: isSecure,
+      auth: { user: smtpUser, pass: cleanPass },
+      tls: { rejectUnauthorized: false, servername: smtpHost },
+      connectionTimeout: 4000,
+      greetingTimeout: 4000,
+      socketTimeout: 5000
+    };
+
+    try {
+      console.log(`[EMAIL SERVICE] Attempting direct SMTP dispatch via ${smtpHost}:${primaryPort}...`);
+      const transporter = nodemailer.createTransport(primaryOptions);
+      const result = await transporter.sendMail(mailOptions);
+      console.log(`[EMAIL SERVICE] Direct SMTP dispatch successful to ${mailOptions.to}`);
+      return result;
+    } catch (smtpErr) {
+      console.warn(`[EMAIL SERVICE] Direct SMTP (port ${primaryPort}) notice: ${smtpErr.message}. Trying secondary port or API fallback...`);
+      
+      const fallbackPort = primaryPort === 465 ? 587 : 465;
+      const fallbackSecure = fallbackPort === 465;
+      const fallbackOptions = {
+        host: targetHost,
+        port: fallbackPort,
+        secure: fallbackSecure,
+        auth: { user: smtpUser, pass: cleanPass },
+        tls: { rejectUnauthorized: false, servername: smtpHost },
+        connectionTimeout: 4000,
+        greetingTimeout: 4000,
+        socketTimeout: 5000
+      };
+
+      try {
+        const fallbackTransporter = nodemailer.createTransport(fallbackOptions);
+        const result = await fallbackTransporter.sendMail(mailOptions);
+        console.log(`[EMAIL SERVICE] Direct SMTP fallback (port ${fallbackPort}) successful`);
+        return result;
+      } catch (fallbackErr) {
+        console.warn(`[EMAIL SERVICE] Direct SMTP fallback notice: ${fallbackErr.message}`);
+      }
+    }
+  }
+
+  // 2. Secondary Fallback: Brevo HTTPS API
   const envBrevo = (process.env.BREVO_API_KEY || '').trim();
   const brevoKey = (envBrevo.length > 10) ? envBrevo : DEFAULT_BREVO_KEY;
-  
   if (brevoKey && brevoKey.length > 10) {
-    console.log(`[EMAIL SERVICE] Dispatching via Brevo HTTPS API (Port 443)...`);
+    console.log(`[EMAIL SERVICE] Fallback: Dispatching via Brevo HTTPS API (Port 443)...`);
     try {
       return await sendViaBrevoApi(brevoKey, smtpUser, mailOptions.to, mailOptions.subject, mailOptions.html);
     } catch (brevoErr) {
@@ -130,8 +182,9 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     }
   }
 
+  // 3. Tertiary Fallback: Resend HTTPS API
   if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim()) {
-    console.log(`[EMAIL SERVICE] Dispatching via Resend HTTPS API (Port 443)...`);
+    console.log(`[EMAIL SERVICE] Fallback: Dispatching via Resend HTTPS API (Port 443)...`);
     try {
       return await sendViaResendApi(process.env.RESEND_API_KEY.trim(), mailOptions.to, mailOptions.subject, mailOptions.html);
     } catch (resendErr) {
@@ -139,47 +192,7 @@ async function dispatchWithFallback(smtpHost, smtpPort, smtpUser, smtpPass, mail
     }
   }
 
-
-  // Pre-resolve host to an explicit IPv4 IP address string so Linux glibc/Node never attempts IPv6
-  const targetHost = await resolveExplicitIpv4(smtpHost);
-
-  // For Gmail SMTP or when port 465 is preferred, use Port 465 SSL directly to bypass cloud port 587 blocks
-  const useSSLFirst = smtpHost.includes('gmail') || parseInt(smtpPort) === 465;
-  const primaryPort = useSSLFirst ? 465 : parseInt(smtpPort || 587);
-  const isSecure = primaryPort === 465;
-
-  const primaryOptions = {
-    host: targetHost,
-    port: primaryPort,
-    secure: isSecure,
-    auth: { user: smtpUser, pass: smtpPass },
-    tls: { rejectUnauthorized: false, servername: smtpHost },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000
-  };
-
-  try {
-    const transporter = nodemailer.createTransport(primaryOptions);
-    return await transporter.sendMail(mailOptions);
-  } catch (err) {
-    console.warn(`[EMAIL SERVICE] Primary transport (port ${primaryPort}) notice: ${err.message}. Trying alternative port...`);
-    const fallbackPort = primaryPort === 465 ? 587 : 465;
-    const fallbackSecure = fallbackPort === 465;
-
-    const fallbackOptions = {
-      host: targetHost,
-      port: fallbackPort,
-      secure: fallbackSecure,
-      auth: { user: smtpUser, pass: smtpPass },
-      tls: { rejectUnauthorized: false, servername: smtpHost },
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000
-    };
-    const fallbackTransporter = nodemailer.createTransport(fallbackOptions);
-    return await fallbackTransporter.sendMail(mailOptions);
-  }
+  throw new Error('All email dispatch methods (Direct SMTP, Brevo API, Resend API) failed.');
 }
 
 

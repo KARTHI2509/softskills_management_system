@@ -17,7 +17,8 @@ async function initializeDatabase() {
     const files = [
       'schema.sql',
       'schema_v2_faculty_tasks.sql',
-      'schema_v3_study_tracking.sql'
+      'schema_v3_study_tracking.sql',
+      'schema_v4_live_interview.sql'
     ];
 
     for (const file of files) {
